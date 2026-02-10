@@ -23,8 +23,8 @@ export const AppDataSource = new DataSource({
   password: config.database.password,
   database: config.database.database,
 
-  // Synchronize schema in development (disable in production)
-  synchronize: config.env === 'development',
+  // Synchronize schema (auto-create tables from entities)
+  synchronize: true,
 
   // Logging
   logging: config.env === 'development' ? ['query', 'error'] : ['error'],

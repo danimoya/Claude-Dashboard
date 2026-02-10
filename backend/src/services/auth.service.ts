@@ -41,9 +41,9 @@ export class AuthService {
     // Create new user
     const user = this.userRepository.create({
       username,
-      password, // Will be hashed by @BeforeInsert hook
       email,
     });
+    user.password = password; // Set virtual field for @BeforeInsert hash hook
 
     await this.userRepository.save(user);
 
