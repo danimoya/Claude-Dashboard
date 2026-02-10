@@ -11,7 +11,6 @@ import {
   UpdateDateColumn,
   Index,
 } from 'typeorm';
-import { Project } from './Project.entity.js';
 
 @Entity('scheduled_tasks')
 @Index(['projectId', 'enabled'])
@@ -25,8 +24,8 @@ export class ScheduledTask {
   @Column({ name: 'project_id' })
   projectId: string;
 
-  @ManyToOne(() => Project, { onDelete: 'CASCADE' })
-  project: Project;
+  @ManyToOne('Project', { onDelete: 'CASCADE' })
+  project: any;
 
   @Column({ name: 'user_id' })
   userId: string;

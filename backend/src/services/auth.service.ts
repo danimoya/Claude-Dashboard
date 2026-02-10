@@ -158,11 +158,11 @@ export class AuthService {
    */
   private generateTokens(userId: string): AuthTokens {
     const accessToken = jwt.sign({ userId }, config.jwt.secret, {
-      expiresIn: config.jwt.expiresIn,
+      expiresIn: config.jwt.expiresIn as jwt.SignOptions['expiresIn'],
     });
 
     const refreshToken = jwt.sign({ userId }, config.jwt.refreshSecret, {
-      expiresIn: config.jwt.refreshExpiresIn,
+      expiresIn: config.jwt.refreshExpiresIn as jwt.SignOptions['expiresIn'],
     });
 
     return { accessToken, refreshToken };

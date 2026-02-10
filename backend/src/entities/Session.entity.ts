@@ -12,8 +12,6 @@ import {
   JoinColumn,
 } from 'typeorm';
 import type { ProjectType, SessionStatus } from '@shared/types';
-import { Project } from './Project.entity.js';
-import { Task } from './Task.entity.js';
 
 @Entity('sessions')
 export class Session {
@@ -38,10 +36,10 @@ export class Session {
   @Column({ type: 'text', nullable: true })
   error?: string;
 
-  @ManyToOne(() => Project, (project) => project.sessions, { onDelete: 'CASCADE' })
+  @ManyToOne('Project', 'sessions', { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'projectId' })
-  project!: Project;
+  project!: any;
 
-  @OneToMany(() => Task, (task) => task.session)
-  tasks!: Task[];
+  @OneToMany('Task', 'session')
+  tasks!: any[];
 }

@@ -11,8 +11,6 @@ import {
   CreateDateColumn,
   Index,
 } from 'typeorm';
-import { User } from './User.entity.js';
-import { Project } from './Project.entity.js';
 
 @Entity('activities')
 @Index(['projectId', 'createdAt'])
@@ -24,14 +22,14 @@ export class Activity {
   @Column({ name: 'user_id' })
   userId: string;
 
-  @ManyToOne(() => User, { onDelete: 'CASCADE' })
-  user: User;
+  @ManyToOne('User', { onDelete: 'CASCADE' })
+  user: any;
 
   @Column({ name: 'project_id' })
   projectId: string;
 
-  @ManyToOne(() => Project, { onDelete: 'CASCADE' })
-  project: Project;
+  @ManyToOne('Project', { onDelete: 'CASCADE' })
+  project: any;
 
   @Column({ type: 'varchar', length: 50 })
   type: 'file_edit' | 'session_start' | 'session_end' | 'command_run' | 'project_create' | 'project_update';

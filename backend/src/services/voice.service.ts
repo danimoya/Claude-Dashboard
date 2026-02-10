@@ -24,7 +24,7 @@ export class VoiceService {
   private apiUrl = 'https://asr.api.speechmatics.com/v2';
 
   constructor() {
-    this.apiKey = config.speechmatics?.apiKey || '';
+    this.apiKey = config.apiKeys.speechmatics || '';
   }
 
   /**
@@ -60,7 +60,7 @@ export class VoiceService {
         throw new Error(`Transcription failed: ${response.statusText}`);
       }
 
-      const result = await response.json();
+      const result: any = await response.json();
 
       // Extract transcription
       const transcript = result.results?.map((r: any) => r.alternatives?.[0]?.content).join(' ') || '';

@@ -13,7 +13,6 @@ import {
   BeforeUpdate,
 } from 'typeorm';
 import bcrypt from 'bcrypt';
-import { Project } from './Project.entity.js';
 
 @Entity('users')
 export class User {
@@ -52,8 +51,8 @@ export class User {
   @UpdateDateColumn()
   updatedAt!: Date;
 
-  @OneToMany(() => Project, (project) => project.user)
-  projects!: Project[];
+  @OneToMany('Project', 'user')
+  projects!: any[];
 
   // Virtual field for password (not persisted)
   password?: string;

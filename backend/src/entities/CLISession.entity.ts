@@ -12,7 +12,6 @@ import {
   UpdateDateColumn,
   Index,
 } from 'typeorm';
-import { Project } from './Project.entity.js';
 import type { ProjectType } from '@shared/types';
 
 @Entity('cli_sessions')
@@ -25,8 +24,8 @@ export class CLISession {
   @Column({ name: 'project_id' })
   projectId: string;
 
-  @ManyToOne(() => Project, (project) => project.id, { onDelete: 'CASCADE' })
-  project: Project;
+  @ManyToOne('Project', { onDelete: 'CASCADE' })
+  project: any;
 
   @Column({ type: 'varchar', length: 20 })
   type: ProjectType;

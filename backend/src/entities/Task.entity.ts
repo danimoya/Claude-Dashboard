@@ -11,7 +11,6 @@ import {
   JoinColumn,
 } from 'typeorm';
 import type { TaskStatus } from '@shared/types';
-import { Session } from './Session.entity.js';
 
 @Entity('tasks')
 export class Task {
@@ -42,7 +41,7 @@ export class Task {
   @Column({ type: 'timestamp', nullable: true })
   completedAt?: Date;
 
-  @ManyToOne(() => Session, (session) => session.tasks, { onDelete: 'CASCADE' })
+  @ManyToOne('Session', 'tasks', { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'sessionId' })
-  session!: Session;
+  session!: any;
 }

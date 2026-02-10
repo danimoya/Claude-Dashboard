@@ -13,8 +13,6 @@ import {
   JoinColumn,
 } from 'typeorm';
 import type { ProjectType, ProjectStatus } from '@shared/types';
-import { User } from './User.entity.js';
-import { Session } from './Session.entity.js';
 
 @Entity('projects')
 export class Project {
@@ -48,10 +46,10 @@ export class Project {
   @UpdateDateColumn()
   updatedAt!: Date;
 
-  @ManyToOne(() => User, (user) => user.projects, { onDelete: 'CASCADE' })
+  @ManyToOne('User', 'projects', { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'userId' })
-  user!: User;
+  user!: any;
 
-  @OneToMany(() => Session, (session) => session.project)
-  sessions!: Session[];
+  @OneToMany('Session', 'project')
+  sessions!: any[];
 }

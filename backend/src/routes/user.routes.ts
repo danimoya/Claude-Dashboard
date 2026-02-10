@@ -32,7 +32,7 @@ const UpdateApiKeysSchema = z.object({
 });
 
 const UpdatePreferencesSchema = z.object({
-  theme: z.enum(['light', 'dark', 'system']).optional(),
+  theme: z.enum(['light', 'dark']).optional(),
   language: z.string().optional(),
   editorFontSize: z.number().min(10).max(32).optional(),
 });

@@ -19,7 +19,7 @@ export class AIEnhancementService {
    * Enhance prompt using Claude API
    */
   async enhanceWithClaude(prompt: string, context?: string): Promise<EnhancementResult> {
-    const apiKey = config.anthropic?.apiKey;
+    const apiKey = config.apiKeys.anthropic;
 
     if (!apiKey) {
       logger.warn('Anthropic API key not configured, returning original prompt');
@@ -88,7 +88,7 @@ Rules:
    * Enhance prompt using OpenAI API
    */
   async enhanceWithOpenAI(prompt: string, context?: string): Promise<EnhancementResult> {
-    const apiKey = config.openai?.apiKey;
+    const apiKey = config.apiKeys.openai;
 
     if (!apiKey) {
       logger.warn('OpenAI API key not configured, returning original prompt');
