@@ -9,6 +9,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { cliService } from '../services/cli.service';
 import SessionList from '../components/cli/SessionList';
 import CLITerminal from '../components/cli/CLITerminal';
+import Button from '../components/Button';
 import type { CLISession, ProjectType } from '@shared/types';
 
 export default function CLIPage() {
@@ -45,24 +46,21 @@ export default function CLIPage() {
   };
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="border-b border-border px-6 py-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">CLI Sessions</h1>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
+          <h1 className="text-2xl font-bold text-foreground">CLI Sessions</h1>
+          <Button onClick={() => setShowCreateModal(true)} size="sm">
             New Session
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Session List Sidebar */}
-        <div className="w-96 border-r border-gray-200 bg-gray-50 overflow-y-auto p-4">
+        <div className="w-96 border-r border-border bg-muted/30 overflow-y-auto p-4">
           <SessionList
             projectId={projectId}
             onSelectSession={setSelectedSession}
@@ -75,10 +73,10 @@ export default function CLIPage() {
           {selectedSession ? (
             <CLITerminal sessionId={selectedSession.id} />
           ) : (
-            <div className="h-full flex items-center justify-center text-gray-400">
+            <div className="h-full flex items-center justify-center text-muted-foreground">
               <div className="text-center">
                 <svg
-                  className="mx-auto h-12 w-12 text-gray-300 mb-4"
+                  className="mx-auto h-12 w-12 text-muted-foreground/40 mb-4"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -99,13 +97,13 @@ export default function CLIPage() {
 
       {/* Create Session Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fade-in">
+          <div className="bg-card text-card-foreground rounded-lg shadow-xl p-6 w-full max-w-md border border-border">
             <h2 className="text-xl font-bold mb-4">Create New Session</h2>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium mb-1">
                   Type
                 </label>
                 <select
@@ -113,7 +111,7 @@ export default function CLIPage() {
                   onChange={(e) =>
                     setNewSession({ ...newSession, type: e.target.value as ProjectType })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
                 >
                   <option value="claude-code">Claude Code</option>
                   <option value="claude-flow">Claude Flow</option>
@@ -121,7 +119,7 @@ export default function CLIPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium mb-1">
                   Command
                 </label>
                 <input
@@ -129,12 +127,12 @@ export default function CLIPage() {
                   value={newSession.command}
                   onChange={(e) => setNewSession({ ...newSession, command: e.target.value })}
                   placeholder="e.g., chat"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium mb-1">
                   Arguments (optional)
                 </label>
                 <input
@@ -144,25 +142,35 @@ export default function CLIPage() {
                     setNewSession({ ...newSession, args: e.target.value.split(' ') })
                   }
                   placeholder="e.g., --verbose --debug"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
                 />
               </div>
             </div>
 
-            <div className="mt-6 flex justify-end space-x-3">
-              <button
+            {createSessionMutation.isError && (
+              <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                <p className="text-sm text-destructive">
+                  {(createSessionMutation.error as any)?.response?.data?.error || 'Failed to create session'}
+                </p>
+              </div>
+            )}
+
+            <div className="mt-6 flex gap-3">
+              <Button
+                onClick={handleCreateSession}
+                disabled={!newSession.command}
+                isLoading={createSessionMutation.isPending}
+                className="flex-1"
+              >
+                Create
+              </Button>
+              <Button
+                variant="ghost"
                 onClick={() => setShowCreateModal(false)}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex-1"
               >
                 Cancel
-              </button>
-              <button
-                onClick={handleCreateSession}
-                disabled={!newSession.command || createSessionMutation.isPending}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {createSessionMutation.isPending ? 'Creating...' : 'Create'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

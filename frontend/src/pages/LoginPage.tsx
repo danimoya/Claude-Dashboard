@@ -9,6 +9,7 @@ import { useAuthStore } from '../stores/authStore';
 import { authService } from '../services/authService';
 import Button from '../components/Button';
 import Input from '../components/Input';
+import ThemeToggle from '../components/ThemeToggle';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -33,14 +34,18 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-950 dark:to-gray-900 px-4">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
+
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Claude Dashboard</h1>
-          <p className="text-gray-600">Sign in to your account</p>
+          <h1 className="text-4xl font-bold text-foreground mb-2">Claude Dashboard</h1>
+          <p className="text-muted-foreground">Sign in to your account</p>
         </div>
 
-        <div className="bg-white rounded-lg shadow-xl p-8">
+        <div className="bg-card text-card-foreground rounded-lg shadow-xl p-8 border border-border">
           <form onSubmit={handleSubmit} className="space-y-6">
             <Input
               label="Username"
@@ -63,8 +68,8 @@ export default function LoginPage() {
             />
 
             {loginMutation.isError && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm text-red-600">
+              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                <p className="text-sm text-destructive">
                   {(loginMutation.error as any)?.response?.data?.error || 'Login failed'}
                 </p>
               </div>
@@ -76,16 +81,16 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-muted-foreground">
               Don't have an account?{' '}
-              <Link to="/register" className="text-primary-600 hover:text-primary-700 font-medium">
+              <Link to="/register" className="text-primary hover:underline font-medium">
                 Sign up
               </Link>
             </p>
           </div>
         </div>
 
-        <p className="text-center text-xs text-gray-500">
+        <p className="text-center text-xs text-muted-foreground">
           Powered by Claude Code &amp; Claude Flow
         </p>
       </div>

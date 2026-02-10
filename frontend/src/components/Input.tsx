@@ -18,7 +18,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="w-full">
         {label && (
-          <label htmlFor={inputId} className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor={inputId} className="block text-sm font-medium mb-1">
             {label}
           </label>
         )}
@@ -26,19 +26,21 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           ref={ref}
           id={inputId}
           className={clsx(
-            'w-full px-3 py-2 border rounded-lg shadow-sm',
-            'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500',
-            'disabled:bg-gray-100 disabled:cursor-not-allowed',
+            'w-full px-3 py-2 border rounded-lg shadow-sm text-sm',
+            'bg-background text-foreground',
+            'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
+            'disabled:bg-muted disabled:cursor-not-allowed',
+            'placeholder:text-muted-foreground',
             {
-              'border-red-500 focus:ring-red-500 focus:border-red-500': error,
-              'border-gray-300': !error,
+              'border-destructive focus:ring-destructive': error,
+              'border-input': !error,
             },
             className
           )}
           {...props}
         />
-        {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
-        {helperText && !error && <p className="mt-1 text-sm text-gray-500">{helperText}</p>}
+        {error && <p className="mt-1 text-sm text-destructive">{error}</p>}
+        {helperText && !error && <p className="mt-1 text-sm text-muted-foreground">{helperText}</p>}
       </div>
     );
   }

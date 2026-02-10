@@ -3,97 +3,124 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAuthStore } from '../stores/authStore';
+import { useNavigate } from 'react-router-dom';
 import { projectService } from '../services/projectService';
-import { authService } from '../services/authService';
 import Button from '../components/Button';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { Project } from '@shared/types';
+import { Search, Plus, FolderOpen, Zap, Archive, AlertCircle } from 'lucide-react';
 
 export default function DashboardPage() {
-  const { user, logout } = useAuthStore();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  // Fetch projects
   const { data: projects, isLoading } = useQuery({
     queryKey: ['projects'],
     queryFn: projectService.getProjects,
   });
 
-  // Fetch stats
   const { data: stats } = useQuery({
     queryKey: ['project-stats'],
     queryFn: projectService.getProjectStats,
   });
 
-  // Logout mutation
-  const logoutMutation = useMutation({
-    mutationFn: authService.logout,
-    onSuccess: () => {
-      logout();
-    },
-  });
-
-  const handleLogout = () => {
-    logoutMutation.mutate();
-  };
+  const filteredProjects = useMemo(() => {
+    if (!projects) return [];
+    return projects.filter((p) => {
+      const matchesSearch = !searchQuery ||
+        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [projects, searchQuery, statusFilter]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Claude Dashboard</h1>
-              <p className="text-sm text-gray-600">Welcome back, {user?.username}!</p>
-            </div>
-            <Button variant="ghost" onClick={handleLogout} isLoading={logoutMutation.isPending}>
-              Logout
-            </Button>
-          </div>
+    <div className="space-y-6">
+      {/* Stats */}
+      {stats && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatsCard title="Total Projects" value={stats.total} icon={<FolderOpen size={20} />} color="blue" />
+          <StatsCard title="Active" value={stats.active} icon={<Zap size={20} />} color="green" />
+          <StatsCard title="Inactive" value={stats.inactive} icon={<AlertCircle size={20} />} color="amber" />
+          <StatsCard title="Archived" value={stats.archived} icon={<Archive size={20} />} color="gray" />
         </div>
-      </header>
+      )}
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats */}
-        {stats && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <StatsCard title="Total Projects" value={stats.total} />
-            <StatsCard title="Active" value={stats.active} variant="success" />
-            <StatsCard title="Inactive" value={stats.inactive} variant="warning" />
-            <StatsCard title="Archived" value={stats.archived} variant="danger" />
+      {/* Projects Section */}
+      <div className="bg-card rounded-lg border border-border">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 border-b border-border">
+          <h2 className="text-xl font-semibold">Your Projects</h2>
+          <Button onClick={() => setShowCreateModal(true)} size="sm">
+            <Plus size={16} className="mr-1.5" /> New Project
+          </Button>
+        </div>
+
+        {/* Filters */}
+        <div className="flex flex-col sm:flex-row gap-3 px-6 py-4 border-b border-border bg-muted/30">
+          <div className="relative flex-1 max-w-sm">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search projects..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 text-sm border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
           </div>
-        )}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-3 py-2 text-sm border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="all">All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+            <option value="archived">Archived</option>
+          </select>
+        </div>
 
-        {/* Projects Section */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">Your Projects</h2>
-            <Button onClick={() => setShowCreateModal(true)}>+ New Project</Button>
-          </div>
-
+        {/* Project List */}
+        <div className="p-6">
           {isLoading ? (
-            <div className="text-center py-12">
-              <div className="animate-spin h-8 w-8 border-4 border-primary-600 border-t-transparent rounded-full mx-auto" />
-              <p className="mt-4 text-gray-600">Loading projects...</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="rounded-lg border border-border p-6 animate-pulse">
+                  <div className="h-8 w-8 bg-muted rounded mb-4" />
+                  <div className="h-5 bg-muted rounded w-3/4 mb-2" />
+                  <div className="h-4 bg-muted rounded w-full mb-4" />
+                  <div className="h-3 bg-muted rounded w-1/2" />
+                </div>
+              ))}
+            </div>
+          ) : filteredProjects.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredProjects.map((project) => (
+                <ProjectCard
+                  key={project.id}
+                  project={project}
+                  onClick={() => navigate(`/projects/${project.id}`)}
+                />
+              ))}
             </div>
           ) : projects && projects.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {projects.map((project) => (
-                <ProjectCard key={project.id} project={project} />
-              ))}
+            <div className="text-center py-12">
+              <Search size={40} className="mx-auto text-muted-foreground/40 mb-3" />
+              <p className="text-muted-foreground">No projects match your search</p>
             </div>
           ) : (
             <div className="text-center py-12">
-              <p className="text-gray-600 mb-4">No projects yet</p>
+              <FolderOpen size={40} className="mx-auto text-muted-foreground/40 mb-3" />
+              <p className="text-muted-foreground mb-4">No projects yet</p>
               <Button onClick={() => setShowCreateModal(true)}>Create Your First Project</Button>
             </div>
           )}
         </div>
-      </main>
+      </div>
 
       {/* Create Project Modal */}
       {showCreateModal && (
@@ -110,61 +137,66 @@ export default function DashboardPage() {
   );
 }
 
-// Stats Card Component
 function StatsCard({
   title,
   value,
-  variant = 'default',
+  icon,
+  color,
 }: {
   title: string;
   value: number;
-  variant?: 'default' | 'success' | 'warning' | 'danger';
+  icon: React.ReactNode;
+  color: 'blue' | 'green' | 'amber' | 'gray';
 }) {
-  const colors = {
-    default: 'bg-blue-50 text-blue-600',
-    success: 'bg-green-50 text-green-600',
-    warning: 'bg-yellow-50 text-yellow-600',
-    danger: 'bg-red-50 text-red-600',
+  const bgColors = {
+    blue: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+    green: 'bg-green-500/10 text-green-600 dark:text-green-400',
+    amber: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+    gray: 'bg-gray-500/10 text-gray-600 dark:text-gray-400',
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <p className="text-sm text-gray-600 mb-2">{title}</p>
-      <p className={`text-3xl font-bold ${colors[variant].split(' ')[1]}`}>{value}</p>
+    <div className="bg-card rounded-lg border border-border p-5 flex items-center gap-4">
+      <div className={`p-2.5 rounded-lg ${bgColors[color]}`}>{icon}</div>
+      <div>
+        <p className="text-sm text-muted-foreground">{title}</p>
+        <p className="text-2xl font-bold">{value}</p>
+      </div>
     </div>
   );
 }
 
-// Project Card Component
-function ProjectCard({ project }: { project: Project }) {
-  const Icon = project.type === 'claude-code' ? '💻' : '⚡';
-  const statusColors = {
-    active: 'bg-green-100 text-green-800',
-    inactive: 'bg-gray-100 text-gray-800',
-    archived: 'bg-red-100 text-red-800',
+function ProjectCard({ project, onClick }: { project: Project; onClick: () => void }) {
+  const statusColors: Record<string, string> = {
+    active: 'bg-green-500/10 text-green-700 dark:text-green-400',
+    inactive: 'bg-gray-500/10 text-gray-700 dark:text-gray-400',
+    archived: 'bg-red-500/10 text-red-700 dark:text-red-400',
   };
 
   return (
-    <div className="bg-white border rounded-lg p-6 hover:shadow-lg transition cursor-pointer">
-      <div className="flex justify-between items-start mb-4">
-        <span className="text-3xl">{Icon}</span>
-        <span
-          className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[project.status]}`}
-        >
+    <div
+      onClick={onClick}
+      className="group rounded-lg border border-border p-5 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer bg-card"
+    >
+      <div className="flex justify-between items-start mb-3">
+        <div className="p-2 rounded-lg bg-primary/10 text-primary">
+          {project.type === 'claude-code' ? <FolderOpen size={20} /> : <Zap size={20} />}
+        </div>
+        <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${statusColors[project.status] || statusColors.inactive}`}>
           {project.status}
         </span>
       </div>
-      <h3 className="text-lg font-semibold text-gray-900 mb-2">{project.name}</h3>
-      <p className="text-sm text-gray-600 mb-4">{project.description || 'No description'}</p>
-      <div className="flex items-center text-xs text-gray-500">
-        <span className="mr-2">📁</span>
-        <span className="truncate">{project.type}</span>
+      <h3 className="font-semibold mb-1 group-hover:text-primary transition-colors">{project.name}</h3>
+      <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+        {project.description || 'No description'}
+      </p>
+      <div className="text-xs text-muted-foreground">
+        {project.type === 'claude-code' ? 'Claude Code' : 'Claude Flow'}
       </div>
     </div>
   );
 }
 
-// Create Project Modal
 function CreateProjectModal({
   onClose,
   onSuccess,
@@ -180,9 +212,7 @@ function CreateProjectModal({
 
   const createMutation = useMutation({
     mutationFn: projectService.createProject,
-    onSuccess: () => {
-      onSuccess();
-    },
+    onSuccess: () => onSuccess(),
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -191,29 +221,29 @@ function CreateProjectModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-fade-in">
+      <div className="bg-card text-card-foreground rounded-lg shadow-xl max-w-md w-full p-6">
         <h3 className="text-xl font-semibold mb-4">Create New Project</h3>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Project Name</label>
+            <label className="block text-sm font-medium mb-1">Project Name</label>
             <input
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Project Type</label>
+            <label className="block text-sm font-medium mb-1">Project Type</label>
             <select
               value={formData.type}
               onChange={(e) =>
                 setFormData({ ...formData, type: e.target.value as 'claude-code' | 'claude-flow' })
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
             >
               <option value="claude-code">Claude Code</option>
               <option value="claude-flow">Claude Flow</option>
@@ -221,20 +251,18 @@ function CreateProjectModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Description (optional)
-            </label>
+            <label className="block text-sm font-medium mb-1">Description (optional)</label>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
             />
           </div>
 
           {createMutation.isError && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-600">
+            <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+              <p className="text-sm text-destructive">
                 {(createMutation.error as any)?.response?.data?.error || 'Failed to create project'}
               </p>
             </div>

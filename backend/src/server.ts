@@ -17,6 +17,7 @@ import { connectRedis, disconnectRedis } from './config/redis.js';
 import { setupQueueEventHandlers, cleanupQueues } from './config/queue.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
+import { securityHeaders, sanitizeInput } from './middleware/security.middleware.js';
 import { initializeCLIGateway } from './websocket/cli.gateway.js';
 import { ClaudeWrapperService } from './services/claude-wrapper.service.js';
 import { CLIOutputParserService } from './services/cli-output-parser.service.js';
@@ -26,6 +27,8 @@ import { CLISessionService } from './services/cli-session.service.js';
 import authRoutes from './routes/auth.routes.js';
 import projectRoutes from './routes/project.routes.js';
 import cliRoutes from './routes/cli.routes.js';
+import fileRoutes from './routes/file.routes.js';
+import userRoutes from './routes/user.routes.js';
 
 // Initialize Express app
 const app = express();
@@ -70,6 +73,10 @@ if (config.env !== 'test') {
 }
 app.use(requestLogger);
 
+// Additional security hardening
+app.use(securityHeaders);
+app.use(sanitizeInput);
+
 // Health check endpoint
 app.get('/health', (_req: Request, res: Response) => {
   res.json({
@@ -84,6 +91,8 @@ app.get('/health', (_req: Request, res: Response) => {
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/projects', projectRoutes);
 app.use('/api/v1/cli', cliRoutes);
+app.use('/api/v1/files', fileRoutes);
+app.use('/api/v1/users', userRoutes);
 
 // 404 handler
 app.use((_req: Request, res: Response) => {
