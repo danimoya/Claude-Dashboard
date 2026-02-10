@@ -29,6 +29,7 @@ import projectRoutes from './routes/project.routes.js';
 import cliRoutes from './routes/cli.routes.js';
 import fileRoutes from './routes/file.routes.js';
 import userRoutes from './routes/user.routes.js';
+import claudeBRoutes from './routes/claudeB.routes.js';
 
 // Initialize Express app
 const app = express();
@@ -93,6 +94,7 @@ app.use('/api/v1/projects', projectRoutes);
 app.use('/api/v1/cli', cliRoutes);
 app.use('/api/v1/files', fileRoutes);
 app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/cb', claudeBRoutes);
 
 // 404 handler
 app.use((_req: Request, res: Response) => {

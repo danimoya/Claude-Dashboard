@@ -2,7 +2,7 @@
  * Shared TypeScript types for Claude Dashboard
  */
 
-export type ProjectType = 'claude-code' | 'claude-flow';
+export type ProjectType = 'claude-code' | 'claude-b';
 export type ProjectStatus = 'active' | 'inactive' | 'archived';
 export type SessionStatus = 'pending' | 'running' | 'completed' | 'failed';
 export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';

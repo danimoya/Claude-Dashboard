@@ -1,6 +1,6 @@
 /**
  * Claude CLI Wrapper Service
- * Manages Claude Code and Claude Flow CLI processes
+ * Manages Claude Code and Claude-B CLI processes
  */
 
 import { spawn, ChildProcess } from 'child_process';
@@ -58,7 +58,7 @@ export class ClaudeWrapperService extends EventEmitter {
 
     try {
       // Determine CLI command based on type
-      const cliCommand = type === 'claude-code' ? 'claude' : 'claude-flow';
+      const cliCommand = type === 'claude-code' ? 'claude' : 'cb';
       const fullArgs = [command.command, ...(command.args || [])];
 
       logger.info(`Starting CLI session ${sessionId}`, {

@@ -180,7 +180,7 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
                       className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                     >
                       <option value="claude-code">Claude Code</option>
-                      <option value="claude-flow">Claude Flow</option>
+                      <option value="claude-b">Claude-B</option>
                     </select>
                   </div>
 

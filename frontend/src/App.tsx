@@ -8,6 +8,7 @@ import DashboardPage from './pages/DashboardPage';
 import ProjectWorkspacePage from './pages/ProjectWorkspacePage';
 import SettingsPage from './pages/SettingsPage';
 import CLIPage from './pages/CLIPage';
+import BackgroundTasksPage from './pages/BackgroundTasksPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -69,6 +70,16 @@ function App() {
               <ProtectedRoute>
                 <AppLayout>
                   <CLIPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/tasks"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <BackgroundTasksPage />
                 </AppLayout>
               </ProtectedRoute>
             }

@@ -114,7 +114,7 @@ export default function CLIPage() {
                   className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
                 >
                   <option value="claude-code">Claude Code</option>
-                  <option value="claude-flow">Claude Flow</option>
+                  <option value="claude-b">Claude-B</option>
                 </select>
               </div>
 

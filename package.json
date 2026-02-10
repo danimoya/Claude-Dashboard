@@ -2,7 +2,7 @@
   "name": "claude-dashboard",
   "version": "1.0.0",
   "private": true,
-  "description": "Web-based GUI wrapper for Claude Code and Claude Flow CLI tools",
+  "description": "Web-based GUI wrapper for Claude Code and Claude-B CLI tools",
   "workspaces": [
     "frontend",
     "backend",

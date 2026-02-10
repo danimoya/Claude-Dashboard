@@ -91,7 +91,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-xs text-muted-foreground">
-          Powered by Claude Code &amp; Claude Flow
+          Powered by Claude Code &amp; Claude-B
         </p>
       </div>
     </div>

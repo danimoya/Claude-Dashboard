@@ -8,6 +8,7 @@ import { clsx } from 'clsx';
 import {
   LayoutDashboard,
   Terminal,
+  Zap,
   Settings,
   LogOut,
   PanelLeftClose,
@@ -26,6 +27,7 @@ interface SidebarProps {
 const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
   { label: 'CLI Sessions', icon: Terminal, path: '/cli' },
+  { label: 'Background Tasks', icon: Zap, path: '/tasks' },
   { label: 'Settings', icon: Settings, path: '/settings' },
 ];
 

@@ -24,7 +24,7 @@ RUN npm run build --workspace=shared
 RUN cd frontend && npx vite build
 
 # Build backend (TypeScript)
-RUN npm run build --workspace=backend
+RUN cd backend && npx tsc --build --force
 
 # Stage 2: Production
 FROM node:18-alpine AS production

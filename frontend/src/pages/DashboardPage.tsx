@@ -191,7 +191,7 @@ function ProjectCard({ project, onClick }: { project: Project; onClick: () => vo
         {project.description || 'No description'}
       </p>
       <div className="text-xs text-muted-foreground">
-        {project.type === 'claude-code' ? 'Claude Code' : 'Claude Flow'}
+        {project.type === 'claude-code' ? 'Claude Code' : 'Claude-B'}
       </div>
     </div>
   );
@@ -206,7 +206,7 @@ function CreateProjectModal({
 }) {
   const [formData, setFormData] = useState({
     name: '',
-    type: 'claude-code' as 'claude-code' | 'claude-flow',
+    type: 'claude-code' as 'claude-code' | 'claude-b',
     description: '',
   });
 
@@ -241,12 +241,12 @@ function CreateProjectModal({
             <select
               value={formData.type}
               onChange={(e) =>
-                setFormData({ ...formData, type: e.target.value as 'claude-code' | 'claude-flow' })
+                setFormData({ ...formData, type: e.target.value as 'claude-code' | 'claude-b' })
               }
               className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
             >
               <option value="claude-code">Claude Code</option>
-              <option value="claude-flow">Claude Flow</option>
+              <option value="claude-b">Claude-B</option>
             </select>
           </div>
 

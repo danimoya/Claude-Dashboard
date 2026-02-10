@@ -18,7 +18,7 @@ const claudeWrapper = new ClaudeWrapperService();
 // Validation schemas
 const CreateSessionSchema = z.object({
   projectId: z.string().uuid(),
-  type: z.enum(['claude-code', 'claude-flow']),
+  type: z.enum(['claude-code', 'claude-b']),
   command: z.string().min(1),
   args: z.array(z.string()).optional(),
 });
