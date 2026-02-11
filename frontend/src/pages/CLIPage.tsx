@@ -5,24 +5,35 @@
 
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cliService } from '../services/cli.service';
+import { projectService } from '../services/projectService';
 import SessionList from '../components/cli/SessionList';
 import CLITerminal from '../components/cli/CLITerminal';
 import Button from '../components/Button';
 import type { CLISession, ProjectType } from '@shared/types';
 
 export default function CLIPage() {
-  const { projectId } = useParams<{ projectId: string }>();
+  const { projectId: routeProjectId } = useParams<{ projectId: string }>();
   const queryClient = useQueryClient();
   const [selectedSession, setSelectedSession] = useState<CLISession | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   const [newSession, setNewSession] = useState({
+    projectId: routeProjectId || '',
     type: 'claude-code' as ProjectType,
     command: '',
     args: [] as string[],
   });
+
+  // Fetch projects for the selector when no routeProjectId
+  const { data: projects } = useQuery({
+    queryKey: ['projects'],
+    queryFn: projectService.getProjects,
+    enabled: !routeProjectId,
+  });
+
+  const activeProjectId = routeProjectId || newSession.projectId || undefined;
 
   const createSessionMutation = useMutation({
     mutationFn: cliService.createSession,
@@ -30,15 +41,16 @@ export default function CLIPage() {
       queryClient.invalidateQueries({ queryKey: ['cli-sessions'] });
       setSelectedSession(data.session);
       setShowCreateModal(false);
-      setNewSession({ type: 'claude-code', command: '', args: [] });
+      setNewSession((prev) => ({ ...prev, command: '', args: [] }));
     },
   });
 
   const handleCreateSession = () => {
-    if (!projectId || !newSession.command) return;
+    const pid = routeProjectId || newSession.projectId;
+    if (!pid || !newSession.command) return;
 
     createSessionMutation.mutate({
-      projectId,
+      projectId: pid,
       type: newSession.type,
       command: newSession.command,
       args: newSession.args.filter((arg) => arg.trim()),
@@ -62,7 +74,7 @@ export default function CLIPage() {
         {/* Session List Sidebar */}
         <div className="w-96 border-r border-border bg-muted/30 overflow-y-auto p-4">
           <SessionList
-            projectId={projectId}
+            projectId={activeProjectId}
             onSelectSession={setSelectedSession}
             selectedSessionId={selectedSession?.id}
           />
@@ -89,6 +101,7 @@ export default function CLIPage() {
                   />
                 </svg>
                 <p className="text-lg">Select a session to view output</p>
+                <p className="text-sm mt-1">or create a new one</p>
               </div>
             </div>
           )}
@@ -101,11 +114,37 @@ export default function CLIPage() {
           <div className="bg-card text-card-foreground rounded-lg shadow-xl p-6 w-full max-w-md border border-border">
             <h2 className="text-xl font-bold mb-4">Create New Session</h2>
 
-            <div className="space-y-4">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleCreateSession();
+              }}
+              className="space-y-4"
+            >
+              {/* Project selector — only shown when no projectId in URL */}
+              {!routeProjectId && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">Project</label>
+                  <select
+                    value={newSession.projectId}
+                    onChange={(e) =>
+                      setNewSession({ ...newSession, projectId: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
+                    required
+                  >
+                    <option value="">Select a project...</option>
+                    {projects?.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Type
-                </label>
+                <label className="block text-sm font-medium mb-1">Type</label>
                 <select
                   value={newSession.type}
                   onChange={(e) =>
@@ -119,22 +158,19 @@ export default function CLIPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Command
-                </label>
+                <label className="block text-sm font-medium mb-1">Command</label>
                 <input
                   type="text"
                   value={newSession.command}
                   onChange={(e) => setNewSession({ ...newSession, command: e.target.value })}
                   placeholder="e.g., chat"
                   className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
+                  required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Arguments (optional)
-                </label>
+                <label className="block text-sm font-medium mb-1">Arguments (optional)</label>
                 <input
                   type="text"
                   value={newSession.args.join(' ')}
@@ -145,33 +181,34 @@ export default function CLIPage() {
                   className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
                 />
               </div>
-            </div>
 
-            {createSessionMutation.isError && (
-              <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
-                <p className="text-sm text-destructive">
-                  {(createSessionMutation.error as any)?.response?.data?.error || 'Failed to create session'}
-                </p>
+              {createSessionMutation.isError && (
+                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                  <p className="text-sm text-destructive">
+                    {(createSessionMutation.error as any)?.response?.data?.error || 'Failed to create session'}
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <Button
+                  type="submit"
+                  disabled={!newSession.command || (!routeProjectId && !newSession.projectId)}
+                  isLoading={createSessionMutation.isPending}
+                  className="flex-1"
+                >
+                  Create
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setShowCreateModal(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
               </div>
-            )}
-
-            <div className="mt-6 flex gap-3">
-              <Button
-                onClick={handleCreateSession}
-                disabled={!newSession.command}
-                isLoading={createSessionMutation.isPending}
-                className="flex-1"
-              >
-                Create
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => setShowCreateModal(false)}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-            </div>
+            </form>
           </div>
         </div>
       )}

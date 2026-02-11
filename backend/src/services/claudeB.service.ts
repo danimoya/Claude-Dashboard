@@ -10,7 +10,10 @@ import { AppError } from '../utils/AppError.js';
 const CB_API_BASE = process.env.CB_API_URL || 'http://127.0.0.1:3847';
 
 interface CBAuthResponse {
-  token: string;
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
 }
 
 interface CBSession {
@@ -60,7 +63,7 @@ export class ClaudeBService {
     const res = await fetch(`${CB_API_BASE}/api/auth/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ apiKey }),
+      body: JSON.stringify({ api_key: apiKey }),
     });
 
     if (!res.ok) {
@@ -68,8 +71,8 @@ export class ClaudeBService {
     }
 
     const data = (await res.json()) as CBAuthResponse;
-    this.jwtToken = data.token;
-    this.tokenExpiresAt = now + 50 * 60 * 1000; // cache for 50 min
+    this.jwtToken = data.access_token;
+    this.tokenExpiresAt = now + (data.expires_in - 600) * 1000; // cache with 10 min margin
     return this.jwtToken;
   }
 

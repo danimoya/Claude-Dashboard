@@ -51,6 +51,10 @@ services:
       REDIS_PORT: "6379"
       JWT_SECRET: ${JWT_SECRET:-change_this_jwt_secret_in_production}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_this_refresh_secret_in_production}
+      CB_API_URL: http://host.docker.internal:3848
+      CB_API_KEY: ${CB_API_KEY:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy

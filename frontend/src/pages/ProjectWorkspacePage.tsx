@@ -10,7 +10,7 @@ import { projectService } from '../services/projectService';
 import FileBrowser from '../components/workspace/FileBrowser';
 import CodeEditor from '../components/workspace/CodeEditor';
 import TerminalPanel from '../components/workspace/TerminalPanel';
-import { PanelLeftClose, PanelLeft, PanelBottomClose, PanelBottom } from 'lucide-react';
+import { PanelLeftClose, PanelLeft, PanelBottomClose, PanelBottom, ArrowLeft } from 'lucide-react';
 
 export default function ProjectWorkspacePage() {
   const { id: projectId } = useParams<{ id: string }>();
@@ -56,6 +56,13 @@ export default function ProjectWorkspacePage() {
       {/* Workspace Header */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-card">
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="p-1.5 rounded-md hover:bg-accent text-muted-foreground"
+            title="Back to Dashboard"
+          >
+            <ArrowLeft size={18} />
+          </button>
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="p-1.5 rounded-md hover:bg-accent text-muted-foreground"
