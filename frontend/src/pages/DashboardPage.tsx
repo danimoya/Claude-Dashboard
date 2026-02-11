@@ -6,6 +6,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { projectService } from '../services/projectService';
 import Button from '../components/Button';
+import Modal from '../components/Modal';
+import { toast } from '../stores/toastStore';
 import { useState, useMemo } from 'react';
 import type { Project } from '@shared/types';
 import { Search, Plus, FolderOpen, Zap, Archive, AlertCircle } from 'lucide-react';
@@ -123,16 +125,15 @@ export default function DashboardPage() {
       </div>
 
       {/* Create Project Modal */}
-      {showCreateModal && (
-        <CreateProjectModal
-          onClose={() => setShowCreateModal(false)}
-          onSuccess={() => {
-            setShowCreateModal(false);
-            queryClient.invalidateQueries({ queryKey: ['projects'] });
-            queryClient.invalidateQueries({ queryKey: ['project-stats'] });
-          }}
-        />
-      )}
+      <CreateProjectModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={() => {
+          setShowCreateModal(false);
+          queryClient.invalidateQueries({ queryKey: ['projects'] });
+          queryClient.invalidateQueries({ queryKey: ['project-stats'] });
+        }}
+      />
     </div>
   );
 }
@@ -198,9 +199,11 @@ function ProjectCard({ project, onClick }: { project: Project; onClick: () => vo
 }
 
 function CreateProjectModal({
+  isOpen,
   onClose,
   onSuccess,
 }: {
+  isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }) {
@@ -212,7 +215,14 @@ function CreateProjectModal({
 
   const createMutation = useMutation({
     mutationFn: projectService.createProject,
-    onSuccess: () => onSuccess(),
+    onSuccess: () => {
+      toast.success(`Project "${formData.name}" created successfully`);
+      setFormData({ name: '', type: 'claude-code', description: '' });
+      onSuccess();
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.error || 'Failed to create project');
+    },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -221,63 +231,52 @@ function CreateProjectModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-fade-in">
-      <div className="bg-card text-card-foreground rounded-lg shadow-xl max-w-md w-full p-6">
-        <h3 className="text-xl font-semibold mb-4">Create New Project</h3>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Project Name</label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
-              required
-            />
-          </div>
+    <Modal isOpen={isOpen} onClose={onClose} title="Create New Project" size="md">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium mb-1">Project Name</label>
+          <input
+            type="text"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
+            required
+          />
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">Project Type</label>
-            <select
-              value={formData.type}
-              onChange={(e) =>
-                setFormData({ ...formData, type: e.target.value as 'claude-code' | 'claude-b' })
-              }
-              className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
-            >
-              <option value="claude-code">Claude Code</option>
-              <option value="claude-b">Claude-B</option>
-            </select>
-          </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Project Type</label>
+          <select
+            value={formData.type}
+            onChange={(e) =>
+              setFormData({ ...formData, type: e.target.value as 'claude-code' | 'claude-b' })
+            }
+            className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
+          >
+            <option value="claude-code">Claude Code</option>
+            <option value="claude-b">Claude-B</option>
+          </select>
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">Description (optional)</label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              rows={3}
-              className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
-            />
-          </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Description (optional)</label>
+          <textarea
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            rows={3}
+            className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
+          />
+        </div>
 
-          {createMutation.isError && (
-            <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
-              <p className="text-sm text-destructive">
-                {(createMutation.error as any)?.response?.data?.error || 'Failed to create project'}
-              </p>
-            </div>
-          )}
-
-          <div className="flex gap-3">
-            <Button type="submit" className="flex-1" isLoading={createMutation.isPending}>
-              Create Project
-            </Button>
-            <Button type="button" variant="ghost" onClick={onClose} className="flex-1">
-              Cancel
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className="flex gap-3">
+          <Button type="submit" className="flex-1" isLoading={createMutation.isPending}>
+            Create Project
+          </Button>
+          <Button type="button" variant="ghost" onClick={onClose} className="flex-1">
+            Cancel
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }
