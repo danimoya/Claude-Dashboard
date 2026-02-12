@@ -3,7 +3,7 @@
  * API client for CLI session management
  */
 
-import { api, ROUTES } from './api';
+import { api } from './api';
 import type { CLISession, ProjectType } from '@shared/types';
 
 export interface CreateSessionDto {

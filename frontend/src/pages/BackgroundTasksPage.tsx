@@ -3,16 +3,14 @@
  * Manages Claude-B sessions — fire-and-forget tasks, live output, notifications.
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { clsx } from 'clsx';
 import {
   Play,
   Square,
-  Trash2,
   Send,
   RefreshCw,
-  Bell,
   BellOff,
   Plus,
   Terminal,
@@ -20,7 +18,6 @@ import {
   XCircle,
   Clock,
   Loader2,
-  ChevronDown,
   Eye,
 } from 'lucide-react';
 import { claudeBService, type CBSession, type CBNotification } from '../services/claudeBService';
@@ -102,13 +99,15 @@ export default function BackgroundTasksPage() {
       {activeTab === 'notifications' && <NotificationsPanel />}
 
       {/* Create Session Modal */}
-      {showCreateModal && (
-        <CreateSessionModal onClose={() => setShowCreateModal(false)} />
-      )}
+      <CreateSessionModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+      />
 
       {/* Send Prompt Modal */}
-      {showPromptModal && selectedSession && (
+      {selectedSession && (
         <SendPromptModal
+          isOpen={showPromptModal}
           sessionId={selectedSession}
           onClose={() => setShowPromptModal(false)}
         />
@@ -255,7 +254,7 @@ function SessionDetail({
           <Button size="sm" onClick={onSendPrompt}>
             <Send size={14} className="mr-1" /> Send Prompt
           </Button>
-          <Button size="sm" variant="destructive" onClick={onKill} isLoading={isKilling}>
+          <Button size="sm" variant="danger" onClick={onKill} isLoading={isKilling}>
             <Square size={14} className="mr-1" /> Kill
           </Button>
         </div>
@@ -385,7 +384,7 @@ function NotificationsPanel() {
 
 // ── Create Session Modal ──────────────────────────────────────
 
-function CreateSessionModal({ onClose }: { onClose: () => void }) {
+function CreateSessionModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const queryClient = useQueryClient();
   const [name, setName] = useState('');
   const [prompt, setPrompt] = useState('');
@@ -406,7 +405,7 @@ function CreateSessionModal({ onClose }: { onClose: () => void }) {
   });
 
   return (
-    <Modal title="New Background Task" onClose={onClose}>
+    <Modal isOpen={isOpen} title="New Background Task" onClose={onClose}>
       <div className="space-y-4">
         <div>
           <label className="block text-sm font-medium mb-1">Session Name (optional)</label>
@@ -458,7 +457,7 @@ function CreateSessionModal({ onClose }: { onClose: () => void }) {
 
 // ── Send Prompt Modal ─────────────────────────────────────────
 
-function SendPromptModal({ sessionId, onClose }: { sessionId: string; onClose: () => void }) {
+function SendPromptModal({ isOpen, sessionId, onClose }: { isOpen: boolean; sessionId: string; onClose: () => void }) {
   const queryClient = useQueryClient();
   const [prompt, setPrompt] = useState('');
 
@@ -471,7 +470,7 @@ function SendPromptModal({ sessionId, onClose }: { sessionId: string; onClose: (
   });
 
   return (
-    <Modal title={`Send Prompt to ${sessionId}`} onClose={onClose}>
+    <Modal isOpen={isOpen} title={`Send Prompt to ${sessionId}`} onClose={onClose}>
       <div className="space-y-4">
         <textarea
           value={prompt}

@@ -77,6 +77,20 @@ export interface EnhancedPrompt {
   timestamp: Date;
 }
 
+export interface CLISession {
+  id: string;
+  projectId: string;
+  type: ProjectType;
+  command: string;
+  args?: string[];
+  status: 'running' | 'stopped' | 'error';
+  metadata?: Record<string, any>;
+  startedAt: Date;
+  lastActivity?: Date;
+  endedAt?: Date | null;
+  updatedAt?: Date;
+}
+
 export interface ContainerInfo {
   id: string;
   name: string;
