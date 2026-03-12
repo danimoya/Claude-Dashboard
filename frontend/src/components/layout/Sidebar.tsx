@@ -4,6 +4,7 @@
  */
 
 import { Link, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { clsx } from 'clsx';
 import {
   LayoutDashboard,
@@ -17,6 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
+import { claudeBService } from '../../services/claudeBService';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -24,16 +26,25 @@ interface SidebarProps {
   onClose?: () => void;
 }
 
-const navItems = [
+const navItems: { label: string; icon: typeof LayoutDashboard; path: string; badgeKey?: string }[] = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
   { label: 'CLI Sessions', icon: Terminal, path: '/cli' },
-  { label: 'Background Tasks', icon: Zap, path: '/tasks' },
+  { label: 'Background Tasks', icon: Zap, path: '/tasks', badgeKey: 'cb-unread' },
   { label: 'Settings', icon: Settings, path: '/settings' },
 ];
 
 export default function Sidebar({ collapsed, onToggleCollapse, onClose }: SidebarProps) {
   const location = useLocation();
   const { user, logout } = useAuthStore();
+
+  const { data: notifCount } = useQuery({
+    queryKey: ['cb-notif-count'],
+    queryFn: claudeBService.getNotificationCount,
+    refetchInterval: 30_000,
+    retry: 1,
+  });
+
+  const unreadCount = notifCount?.unread || 0;
 
   const isActive = (path: string) => location.pathname.startsWith(path);
 
@@ -100,8 +111,24 @@ export default function Sidebar({ collapsed, onToggleCollapse, onClose }: Sideba
                 collapsed && 'justify-center px-2'
               )}
             >
-              <Icon className="h-5 w-5 shrink-0" />
-              {!collapsed && <span>{item.label}</span>}
+              <span className="relative">
+                <Icon className="h-5 w-5 shrink-0" />
+                {collapsed && item.badgeKey && unreadCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </span>
+              {!collapsed && (
+                <span className="flex items-center gap-2">
+                  {item.label}
+                  {item.badgeKey && unreadCount > 0 && (
+                    <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-primary-foreground">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </span>
+              )}
             </Link>
           );
         })}

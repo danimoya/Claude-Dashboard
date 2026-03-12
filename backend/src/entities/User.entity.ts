@@ -37,9 +37,10 @@ export class User {
 
   @Column({ type: 'jsonb', nullable: true })
   preferences?: {
-    theme?: 'light' | 'dark';
+    theme?: 'light' | 'dark' | 'system';
     language?: string;
     voiceProvider?: string;
+    editorFontSize?: number;
   };
 
   @Column({ default: true })

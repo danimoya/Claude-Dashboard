@@ -57,14 +57,14 @@ export default function SessionList({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
   }
 
   if (!sessions || sessions.length === 0) {
     return (
-      <div className="text-center p-8 text-gray-400">
+      <div className="text-center p-8 text-muted-foreground">
         No sessions found
       </div>
     );
@@ -78,29 +78,29 @@ export default function SessionList({
           onClick={() => onSelectSession?.(session)}
           className={`p-4 rounded-lg border cursor-pointer transition-colors ${
             selectedSessionId === session.id
-              ? 'bg-blue-50 border-blue-300'
-              : 'bg-white border-gray-200 hover:border-gray-300'
+              ? 'bg-primary/5 border-primary'
+              : 'bg-card border-border hover:border-primary/40'
           }`}
         >
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <div className="flex items-center space-x-2">
                 <span className={`w-2 h-2 rounded-full ${getStatusColor(session.status)}`} />
-                <span className="font-medium text-gray-900">
+                <span className="font-medium text-foreground">
                   {session.command}
                 </span>
-                <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded">
+                <span className="text-xs px-2 py-1 bg-muted text-muted-foreground rounded">
                   {session.type}
                 </span>
               </div>
 
               {session.args && session.args.length > 0 && (
-                <div className="mt-1 text-sm text-gray-500 font-mono">
+                <div className="mt-1 text-sm text-muted-foreground font-mono">
                   {session.args.join(' ')}
                 </div>
               )}
 
-              <div className="mt-2 flex items-center space-x-4 text-xs text-gray-500">
+              <div className="mt-2 flex items-center space-x-4 text-xs text-muted-foreground">
                 <span>
                   Started {formatDistanceToNow(new Date(session.startedAt), { addSuffix: true })}
                 </span>
@@ -116,10 +116,10 @@ export default function SessionList({
               <span
                 className={`inline-block px-2 py-1 text-xs font-medium rounded ${
                   session.status === 'running'
-                    ? 'bg-green-100 text-green-800'
+                    ? 'bg-green-500/10 text-green-700 dark:text-green-400'
                     : session.status === 'error'
-                    ? 'bg-red-100 text-red-800'
-                    : 'bg-gray-100 text-gray-800'
+                    ? 'bg-red-500/10 text-red-700 dark:text-red-400'
+                    : 'bg-muted text-muted-foreground'
                 }`}
               >
                 {getStatusText(session.status)}
@@ -128,13 +128,13 @@ export default function SessionList({
           </div>
 
           {session.metadata && (
-            <div className="mt-3 pt-3 border-t border-gray-100">
-              <div className="flex items-center space-x-4 text-xs text-gray-500">
+            <div className="mt-3 pt-3 border-t border-border">
+              <div className="flex items-center space-x-4 text-xs text-muted-foreground">
                 {session.metadata.totalCommands !== undefined && (
                   <span>Commands: {session.metadata.totalCommands}</span>
                 )}
                 {session.metadata.errors !== undefined && (
-                  <span className="text-red-500">Errors: {session.metadata.errors}</span>
+                  <span className="text-destructive">Errors: {session.metadata.errors}</span>
                 )}
                 {session.metadata.lastCommand && (
                   <span className="font-mono truncate max-w-xs">

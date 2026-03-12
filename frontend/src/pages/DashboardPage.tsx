@@ -211,13 +211,14 @@ function CreateProjectModal({
     name: '',
     type: 'claude-code' as 'claude-code' | 'claude-b',
     description: '',
+    path: '',
   });
 
   const createMutation = useMutation({
     mutationFn: projectService.createProject,
     onSuccess: () => {
       toast.success(`Project "${formData.name}" created successfully`);
-      setFormData({ name: '', type: 'claude-code', description: '' });
+      setFormData({ name: '', type: 'claude-code', description: '', path: '' });
       onSuccess();
     },
     onError: (error: any) => {
@@ -227,7 +228,8 @@ function CreateProjectModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createMutation.mutate(formData);
+    const { path: dirPath, ...rest } = formData;
+    createMutation.mutate(dirPath ? { ...rest, path: dirPath } : rest);
   };
 
   return (
@@ -266,6 +268,20 @@ function CreateProjectModal({
             rows={3}
             className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Directory Path (optional)</label>
+          <input
+            type="text"
+            value={formData.path}
+            onChange={(e) => setFormData({ ...formData, path: e.target.value })}
+            placeholder="e.g., my-app or /app/projects/my-app"
+            className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            Map to an existing host directory. Leave empty to auto-create.
+          </p>
         </div>
 
         <div className="flex gap-3">

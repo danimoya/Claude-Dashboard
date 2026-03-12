@@ -51,6 +51,10 @@ services:
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_this_refresh_secret_in_production}
       CB_API_URL: http://host.docker.internal:3848
       CB_API_KEY: ${CB_API_KEY:-}
+      SPEECHMATICS_API_KEY: ${SPEECHMATICS_API_KEY:-}
+      PROJECTS_BASE_PATH: /app/projects
+    volumes:
+      - ${PROJECTS_PATH:-./projects}:/app/projects
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

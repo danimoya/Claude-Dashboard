@@ -6,25 +6,42 @@
 import { AppDataSource } from '../config/database.js';
 import { Project } from '../entities/Project.entity.js';
 import { AppError } from '../utils/AppError.js';
+import { config } from '../config/env.js';
 import type { CreateProjectDto, UpdateProjectDto } from '@shared/schemas';
 import path from 'path';
-import { mkdir } from 'fs/promises';
+import { mkdir, stat } from 'fs/promises';
 
 export class ProjectService {
   private projectRepository = AppDataSource.getRepository(Project);
-  private projectsBasePath = path.join(process.cwd(), 'projects');
+  private projectsBasePath = config.projectsBasePath;
 
   /**
    * Create a new project
    */
   async createProject(userId: string, dto: CreateProjectDto): Promise<Project> {
-    // Create project directory
-    const projectPath = path.join(this.projectsBasePath, userId, dto.name);
+    let projectPath: string;
 
-    try {
-      await mkdir(projectPath, { recursive: true });
-    } catch (error) {
-      throw AppError.internal('Failed to create project directory');
+    if (dto.path) {
+      // User-provided path — resolve relative to base and validate
+      const resolved = path.resolve(this.projectsBasePath, dto.path);
+      if (!resolved.startsWith(this.projectsBasePath)) {
+        throw AppError.badRequest('Invalid project path: directory traversal not allowed');
+      }
+      // Ensure the directory exists or create it
+      try {
+        await mkdir(resolved, { recursive: true });
+      } catch {
+        throw AppError.internal('Failed to create project directory');
+      }
+      projectPath = resolved;
+    } else {
+      // Auto-generate path
+      projectPath = path.join(this.projectsBasePath, userId, dto.name);
+      try {
+        await mkdir(projectPath, { recursive: true });
+      } catch {
+        throw AppError.internal('Failed to create project directory');
+      }
     }
 
     // Create project entity

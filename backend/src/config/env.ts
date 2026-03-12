@@ -44,6 +44,9 @@ const envSchema = z.object({
   VOICE_PROVIDER: z.enum(['speechmatics', 'openai', 'assemblyai']).default('speechmatics'),
   PROMPT_ENHANCEMENT_PROVIDER: z.enum(['openai', 'anthropic']).default('openai'),
 
+  // Projects
+  PROJECTS_BASE_PATH: z.string().default('/app/projects'),
+
   // Security configuration
   CORS_ORIGINS: z.string().default('http://localhost:3000'),
   RATE_LIMIT_WINDOW: z.string().transform(Number).default('900000'),
@@ -97,6 +100,8 @@ export const config = {
     voiceProvider: env.VOICE_PROVIDER,
     promptEnhancementProvider: env.PROMPT_ENHANCEMENT_PROVIDER,
   },
+
+  projectsBasePath: env.PROJECTS_BASE_PATH,
 
   cors: {
     origins: env.CORS_ORIGINS.split(','),

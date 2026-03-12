@@ -19,6 +19,7 @@ import { errorHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { securityHeaders, sanitizeInput } from './middleware/security.middleware.js';
 import { initializeCLIGateway } from './websocket/cli.gateway.js';
+import { registerCBStreamProxy } from './websocket/cb-stream.proxy.js';
 import { ClaudeWrapperService } from './services/claude-wrapper.service.js';
 import { CLIOutputParserService } from './services/cli-output-parser.service.js';
 import { CLISessionService } from './services/cli-session.service.js';
@@ -147,6 +148,10 @@ async function startServer() {
     const sessionService = new CLISessionService();
     initializeCLIGateway(io, claudeWrapper, outputParser, sessionService);
     logger.info('CLI WebSocket gateway initialized');
+
+    // Initialize CB stream WebSocket proxy
+    registerCBStreamProxy(httpServer);
+    logger.info('CB stream WebSocket proxy initialized');
 
     // Start HTTP server
     httpServer.listen(config.port, () => {

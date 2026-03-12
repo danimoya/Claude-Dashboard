@@ -21,10 +21,12 @@ import {
   Eye,
 } from 'lucide-react';
 import { claudeBService, type CBSession, type CBNotification } from '../services/claudeBService';
+import { useCBStream } from '../hooks/useCBStream';
 import Button from '../components/Button';
 import Badge from '../components/Badge';
 import Tabs from '../components/Tabs';
 import Modal from '../components/Modal';
+import { toast } from '../stores/toastStore';
 
 const tabs = [
   { id: 'sessions', label: 'Sessions' },
@@ -140,7 +142,9 @@ function SessionsPanel({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cb-sessions'] });
       onSelectSession(null);
+      toast.success('Session terminated');
     },
+    onError: () => toast.error('Failed to terminate session'),
   });
 
   const sessions = data?.sessions ?? [];
@@ -228,11 +232,19 @@ function SessionDetail({
   onKill: () => void;
   isKilling: boolean;
 }) {
-  const { data: output, refetch } = useQuery({
+  // Live streaming via WebSocket
+  const stream = useCBStream(sessionId);
+
+  // Polling fallback when WS is disconnected
+  const { data: polledOutput, refetch } = useQuery({
     queryKey: ['cb-output', sessionId],
     queryFn: () => claudeBService.getLastOutput(sessionId),
-    refetchInterval: 3_000,
+    refetchInterval: stream.connected ? false : 3_000,
   });
+
+  const displayOutput = stream.connected && stream.output
+    ? stream.output
+    : polledOutput?.output || '';
 
   const outputRef = useRef<HTMLPreElement>(null);
 
@@ -240,14 +252,29 @@ function SessionDetail({
     if (outputRef.current) {
       outputRef.current.scrollTop = outputRef.current.scrollHeight;
     }
-  }, [output?.output]);
+  }, [displayOutput]);
 
   return (
     <div className="border border-border rounded-lg bg-card overflow-hidden">
       {/* Toolbar */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-muted/30">
-        <span className="text-sm font-medium">{sessionId}</span>
         <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">{sessionId}</span>
+          {stream.connected ? (
+            <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+              live
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground">polling</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {!stream.connected && (
+            <Button size="sm" variant="ghost" onClick={stream.reconnect} title="Try streaming">
+              <RefreshCw size={14} />
+            </Button>
+          )}
           <Button size="sm" variant="ghost" onClick={() => refetch()} title="Refresh output">
             <RefreshCw size={14} />
           </Button>
@@ -263,9 +290,9 @@ function SessionDetail({
       {/* Output */}
       <pre
         ref={outputRef}
-        className="p-4 text-xs font-mono leading-relaxed overflow-auto max-h-96 bg-gray-950 text-gray-200 whitespace-pre-wrap"
+        className="p-4 text-xs font-mono leading-relaxed overflow-auto max-h-96 bg-zinc-950 text-zinc-200 whitespace-pre-wrap"
       >
-        {output?.output || 'No output yet. Send a prompt to get started.'}
+        {displayOutput || 'No output yet. Send a prompt to get started.'}
       </pre>
     </div>
   );
@@ -295,6 +322,7 @@ function NotificationsPanel() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cb-notifications'] });
       queryClient.invalidateQueries({ queryKey: ['cb-notif-count'] });
+      toast.success('All marked as read');
     },
   });
 
@@ -400,7 +428,11 @@ function CreateSessionModal({ isOpen, onClose }: { isOpen: boolean; onClose: () 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cb-sessions'] });
       queryClient.invalidateQueries({ queryKey: ['cb-health'] });
+      toast.success('Session created');
       onClose();
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.error || 'Failed to create session');
     },
   });
 
@@ -465,8 +497,10 @@ function SendPromptModal({ isOpen, sessionId, onClose }: { isOpen: boolean; sess
     mutationFn: () => claudeBService.sendPrompt(sessionId, prompt),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cb-output', sessionId] });
+      toast.success('Prompt sent');
       onClose();
     },
+    onError: () => toast.error('Failed to send prompt'),
   });
 
   return (

@@ -11,6 +11,7 @@ import { projectService } from '../services/projectService';
 import SessionList from '../components/cli/SessionList';
 import CLITerminal from '../components/cli/CLITerminal';
 import Button from '../components/Button';
+import { toast } from '../stores/toastStore';
 import type { CLISession, ProjectType } from '@shared/types';
 
 export default function CLIPage() {
@@ -42,6 +43,10 @@ export default function CLIPage() {
       setSelectedSession(data.session);
       setShowCreateModal(false);
       setNewSession((prev) => ({ ...prev, command: '', args: [] }));
+      toast.success('CLI session created');
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.error || 'Failed to create session');
     },
   });
 

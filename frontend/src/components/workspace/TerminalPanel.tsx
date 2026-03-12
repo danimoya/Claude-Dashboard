@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import CLITerminal from '../cli/CLITerminal';
 import { cliService, type CreateSessionDto } from '../../services/cli.service';
+import { toast } from '../../stores/toastStore';
 import type { ProjectType } from '@shared/types';
 
 interface TerminalPanelProps {
@@ -59,6 +60,10 @@ export default function TerminalPanel({ projectId }: TerminalPanelProps) {
       setShowCreateForm(false);
       setNewCommand('');
       setNewType('claude-code');
+      toast.success('Session created');
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.error || 'Failed to create session');
     },
   });
 

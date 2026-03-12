@@ -10,7 +10,8 @@ import { useThemeStore } from '../stores/themeStore';
 import { userService } from '../services/userService';
 import Button from '../components/Button';
 import Input from '../components/Input';
-import { User, Key, Palette, Eye, EyeOff, Check } from 'lucide-react';
+import { User, Key, Palette, Eye, EyeOff } from 'lucide-react';
+import { toast } from '../stores/toastStore';
 
 type TabId = 'profile' | 'api-keys' | 'preferences';
 
@@ -63,6 +64,10 @@ function ProfileTab() {
     mutationFn: () => userService.updateProfile({ username, email: email || undefined }),
     onSuccess: (data) => {
       updateUser(data);
+      toast.success('Profile updated');
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.error || 'Failed to update profile');
     },
   });
 
@@ -71,6 +76,10 @@ function ProfileTab() {
     onSuccess: () => {
       setCurrentPassword('');
       setNewPassword('');
+      toast.success('Password changed');
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.error || 'Failed to change password');
     },
   });
 
@@ -95,9 +104,6 @@ function ProfileTab() {
             <p className="text-sm text-destructive">
               {(profileMutation.error as any)?.response?.data?.error || 'Failed to update profile'}
             </p>
-          )}
-          {profileMutation.isSuccess && (
-            <p className="text-sm text-green-600 flex items-center gap-1"><Check size={14} /> Profile updated</p>
           )}
           <Button onClick={() => profileMutation.mutate()} isLoading={profileMutation.isPending}>
             Save Changes
@@ -129,9 +135,6 @@ function ProfileTab() {
               {(passwordMutation.error as any)?.response?.data?.error || 'Failed to change password'}
             </p>
           )}
-          {passwordMutation.isSuccess && (
-            <p className="text-sm text-green-600 flex items-center gap-1"><Check size={14} /> Password updated</p>
-          )}
           <Button
             onClick={() => passwordMutation.mutate()}
             isLoading={passwordMutation.isPending}
@@ -159,6 +162,10 @@ function ApiKeysTab() {
     },
     onSuccess: () => {
       setKeys({ anthropic: '', openai: '', speechmatics: '' });
+      toast.success('API keys saved');
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.error || 'Failed to save API keys');
     },
   });
 
@@ -194,9 +201,6 @@ function ApiKeysTab() {
         {renderKeyInput('Anthropic API Key', 'anthropic', 'sk-ant-...')}
         {renderKeyInput('OpenAI API Key', 'openai', 'sk-...')}
         {renderKeyInput('Speechmatics API Key', 'speechmatics', 'Enter key...')}
-        {mutation.isSuccess && (
-          <p className="text-sm text-green-600 flex items-center gap-1"><Check size={14} /> API keys updated</p>
-        )}
         <Button onClick={() => mutation.mutate()} isLoading={mutation.isPending}>
           Save API Keys
         </Button>
@@ -207,6 +211,18 @@ function ApiKeysTab() {
 
 function PreferencesTab() {
   const { theme, setTheme } = useThemeStore();
+  const [editorFontSize, setEditorFontSize] = useState(14);
+
+  const prefsMutation = useMutation({
+    mutationFn: userService.updatePreferences,
+    onSuccess: () => toast.success('Preferences saved'),
+    onError: () => toast.error('Failed to save preferences'),
+  });
+
+  const handleThemeChange = (t: 'light' | 'dark' | 'system') => {
+    setTheme(t);
+    prefsMutation.mutate({ theme: t });
+  };
 
   return (
     <div className="bg-card rounded-lg border border-border p-6">
@@ -219,7 +235,7 @@ function PreferencesTab() {
             {(['light', 'dark', 'system'] as const).map((t) => (
               <button
                 key={t}
-                onClick={() => setTheme(t)}
+                onClick={() => handleThemeChange(t)}
                 className={`px-4 py-2 rounded-lg border text-sm font-medium capitalize transition-colors ${
                   theme === t
                     ? 'border-primary bg-primary/10 text-primary'
@@ -230,6 +246,31 @@ function PreferencesTab() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Editor Font Size */}
+        <div>
+          <label className="block text-sm font-medium mb-2">Editor Font Size</label>
+          <div className="flex items-center gap-3">
+            <input
+              type="number"
+              min={10}
+              max={32}
+              value={editorFontSize}
+              onChange={(e) => setEditorFontSize(Number(e.target.value))}
+              className="w-20 px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:outline-none text-sm"
+            />
+            <span className="text-sm text-muted-foreground">px</span>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => prefsMutation.mutate({ editorFontSize })}
+              isLoading={prefsMutation.isPending}
+            >
+              Save
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">Controls font size in terminal and code views (10-32px)</p>
         </div>
       </div>
     </div>
