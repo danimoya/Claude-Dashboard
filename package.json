@@ -2,7 +2,7 @@
   "name": "claude-dashboard",
   "version": "1.0.0",
   "private": true,
-  "description": "Web-based GUI wrapper for Claude Code and Claude-B CLI tools",
+  "description": "Self-hosted GUI for Claude Code, Claude-B, and live tmux sessions — with mailbox-style task inbox, project workspace, and 2FA-gated settings.",
   "workspaces": [
     "frontend",
     "backend",
