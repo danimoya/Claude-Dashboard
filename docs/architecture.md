@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-Claude Dashboard is a comprehensive web-based GUI wrapper for Claude Code and Claude Flow CLI tools, providing an intuitive interface for AI-assisted development with advanced project management, voice input, and automation capabilities.
+Claude Dashboard is a comprehensive web-based GUI wrapper for Claude Code, Claude-B (`cb`), and arbitrary tmux-attached interactive CLI tools, providing an intuitive interface for AI-assisted development with project management, voice input, and automation capabilities.
 
 ## System Architecture
 
@@ -111,7 +111,7 @@ interface User {
 interface Project {
   id: string;
   name: string;
-  type: 'claude-code' | 'claude-flow';
+  type: 'claude-code' | 'claude-b';
   path: string;
   status: ProjectStatus;
   infrastructure: Infrastructure[];
@@ -366,9 +366,10 @@ interface Metrics {
 
 ### CLI Tools
 1. **Claude Code**: Direct CLI invocation
-2. **Claude Flow**: Process management
-3. **Git**: Version control operations
-4. **Docker**: Container operations
+2. **Claude-B (`cb`)**: Background-agent daemon REST API + WS streaming
+3. **tmux**: Live attachment to host sessions (capture-pane + send-keys)
+4. **Git**: Version control operations
+5. **Docker**: Container operations
 
 ## Development Roadmap
 
@@ -460,4 +461,4 @@ interface Metrics {
 
 ## Conclusion
 
-This architecture provides a robust, scalable foundation for the Claude Dashboard, enabling seamless integration with Claude Code and Claude Flow while providing an intuitive user experience with advanced features for AI-assisted development.
+This architecture provides a robust, scalable foundation for the Claude Dashboard, enabling seamless integration with Claude Code, Claude-B, and any tmux-attached interactive CLI while providing an intuitive user experience with advanced features for AI-assisted development.

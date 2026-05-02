@@ -497,7 +497,7 @@ describe('ProjectRepository', () => {
   it('should find project by id', async () => {
     const created = await repository.create({
       name: 'Find Test',
-      type: 'claude-flow',
+      type: 'claude-b',
       path: '/tmp/find-test',
       userId: 'user-123'
     });
@@ -519,7 +519,7 @@ describe('ProjectRepository', () => {
 
     await repository.create({
       name: 'Project 2',
-      type: 'claude-flow',
+      type: 'claude-b',
       path: '/tmp/p2',
       userId: 'user-123'
     });
@@ -577,7 +577,7 @@ describe('ProjectRepository', () => {
 
     await expect(repository.create({
       name: 'Unique Project',
-      type: 'claude-flow',
+      type: 'claude-b',
       path: '/tmp/unique2',
       userId: 'user-123'
     })).rejects.toThrow();
@@ -689,7 +689,7 @@ describe('Projects API Integration', () => {
       await request(app)
         .post('/api/projects')
         .set('Authorization', `Bearer ${authToken}`)
-        .send({ name: 'Project 2', type: 'claude-flow' });
+        .send({ name: 'Project 2', type: 'claude-b' });
     });
 
     it('should list user projects', async () => {
@@ -878,15 +878,15 @@ describe('Claude CLI Wrapper Integration', () => {
     expect(exists).toBe(true);
   }, 60000);
 
-  it('should handle Claude Flow initialization', async () => {
+  it('should handle Claude-B initialization', async () => {
     const sessionId = 'flow-init-session';
 
     await service.executeCommand(sessionId, 'flow', ['init'], {
       cwd: testProjectPath
     });
 
-    // Verify .claude-flow directory was created
-    const flowPath = path.join(testProjectPath, '.claude-flow');
+    // Verify .claude-b directory was created
+    const flowPath = path.join(testProjectPath, '.claude-b');
     const exists = await fs.access(flowPath).then(() => true).catch(() => false);
     expect(exists).toBe(true);
   }, 30000);
@@ -3099,7 +3099,7 @@ export class ProjectFactory {
     return {
       id: faker.string.uuid(),
       name: faker.company.name(),
-      type: faker.helpers.arrayElement(['claude-code', 'claude-flow'] as ProjectType[]),
+      type: faker.helpers.arrayElement(['claude-code', 'claude-b'] as ProjectType[]),
       path: faker.system.directoryPath(),
       status: 'inactive',
       userId: faker.string.uuid(),

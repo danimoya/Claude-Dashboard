@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Claude Dashboard is a web-based GUI wrapper for Claude Code and Claude Flow CLI tools. It's a full-stack TypeScript monorepo with three npm workspaces: `frontend`, `backend`, and `shared`.
+Claude Dashboard is a web-based GUI wrapper for Claude Code and Claude-B CLI tools, with live tmux pane attachment for any other interactive session running on the host. Full-stack TypeScript monorepo with three npm workspaces: `frontend`, `backend`, and `shared`.
 
 ## Common Commands
 
@@ -59,7 +59,7 @@ npm run typecheck
 ### Key Data Flow: CLI Sessions
 
 1. API request creates a `CLISession` entity in PostgreSQL
-2. `ClaudeWrapperService` spawns a `claude` or `claude-flow` child process
+2. `ClaudeWrapperService` spawns a `claude` or `cb` (Claude-B) child process
 3. stdout/stderr streamed via EventEmitter → `CLIOutputParserService` → `CLIGateway`
 4. `CLIGateway` broadcasts parsed output over Socket.io `/cli` namespace to subscribed rooms (`session:{id}`)
 5. Inactive sessions auto-cleaned after 30 minutes

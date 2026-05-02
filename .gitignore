@@ -7,4 +7,8 @@ build/
 *.log
 coverage/
 .vite/
-.tsbuildinfo
+*.tsbuildinfo
+
+# Agent scratch dirs that some tools drop next to the project root.
+.hive_mind/
+.claude-flow/
