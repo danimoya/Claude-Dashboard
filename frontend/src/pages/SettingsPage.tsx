@@ -1,40 +1,105 @@
 /**
  * Settings Page
- * User profile, API keys, and preferences management
+ *
+ * Profile, API keys, preferences, and security (2FA). When the user has 2FA
+ * enabled, viewing this page requires a TOTP step-up. The step-up token lives
+ * in sessionStorage and is cleared on logout / tab close.
  */
 
-import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../stores/authStore';
 import { useThemeStore } from '../stores/themeStore';
 import { userService } from '../services/userService';
+import { twofaService } from '../services/twofaService';
 import Button from '../components/Button';
 import Input from '../components/Input';
-import { User, Key, Palette, Eye, EyeOff } from 'lucide-react';
+import { User, Key, Palette, Eye, EyeOff, ShieldCheck, ShieldAlert, Loader2 } from 'lucide-react';
 import { toast } from '../stores/toastStore';
 
-type TabId = 'profile' | 'api-keys' | 'preferences';
+type TabId = 'profile' | 'api-keys' | 'preferences' | 'security';
 
 const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: 'profile', label: 'Profile', icon: <User size={16} /> },
   { id: 'api-keys', label: 'API Keys', icon: <Key size={16} /> },
   { id: 'preferences', label: 'Preferences', icon: <Palette size={16} /> },
+  { id: 'security', label: 'Security', icon: <ShieldCheck size={16} /> },
 ];
+
+const STEP_UP_KEY = '2faToken';
+const STEP_UP_EXP_KEY = '2faTokenExpires';
+
+function readStepUp(): { token: string; expiresAt: number } | null {
+  try {
+    const t = sessionStorage.getItem(STEP_UP_KEY);
+    const e = Number(sessionStorage.getItem(STEP_UP_EXP_KEY) || 0);
+    if (!t || !e || Date.now() >= e) return null;
+    return { token: t, expiresAt: e };
+  } catch {
+    return null;
+  }
+}
+
+function writeStepUp(t: string, expiresAt: number): void {
+  try {
+    sessionStorage.setItem(STEP_UP_KEY, t);
+    sessionStorage.setItem(STEP_UP_EXP_KEY, String(expiresAt));
+  } catch {
+    /* ignore */
+  }
+}
+
+function clearStepUp(): void {
+  try {
+    sessionStorage.removeItem(STEP_UP_KEY);
+    sessionStorage.removeItem(STEP_UP_EXP_KEY);
+  } catch {
+    /* ignore */
+  }
+}
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<TabId>('profile');
+
+  // Check 2FA status — if enabled and no step-up token, gate the page.
+  const { data: status, isLoading: statusLoading } = useQuery({
+    queryKey: ['2fa-status'],
+    queryFn: twofaService.status,
+  });
+
+  const [hasStepUp, setHasStepUp] = useState<boolean>(() => !!readStepUp());
+
+  // Re-check on tab visibility change in case the token expired.
+  useEffect(() => {
+    const refresh = () => setHasStepUp(!!readStepUp());
+    window.addEventListener('focus', refresh);
+    return () => window.removeEventListener('focus', refresh);
+  }, []);
+
+  const needsChallenge = !!status?.enabled && !hasStepUp;
+
+  if (statusLoading) {
+    return (
+      <div className="flex items-center justify-center py-20 text-muted-foreground">
+        <Loader2 className="animate-spin mr-2" size={16} /> Loading…
+      </div>
+    );
+  }
+
+  if (needsChallenge) {
+    return <Challenge onSuccess={() => setHasStepUp(true)} />;
+  }
 
   return (
     <div className="max-w-3xl mx-auto">
       <h1 className="text-2xl font-bold mb-6">Settings</h1>
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-border mb-6">
+      <div className="flex gap-1 border-b border-border mb-6 overflow-x-auto">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               activeTab === tab.id
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -49,9 +114,72 @@ export default function SettingsPage() {
       {activeTab === 'profile' && <ProfileTab />}
       {activeTab === 'api-keys' && <ApiKeysTab />}
       {activeTab === 'preferences' && <PreferencesTab />}
+      {activeTab === 'security' && (
+        <SecurityTab
+          enabled={!!status?.enabled}
+          onEnabledChange={() => {
+            // status will re-fetch; clear the step-up so the next visit
+            // re-challenges if 2FA was just turned off-then-on.
+          }}
+        />
+      )}
     </div>
   );
 }
+
+// ── 2FA Challenge ───────────────────────────────────────────────
+
+function Challenge({ onSuccess }: { onSuccess: () => void }) {
+  const [code, setCode] = useState('');
+  const verify = useMutation({
+    mutationFn: () => twofaService.verify(code),
+    onSuccess: (data) => {
+      writeStepUp(data.token, data.expiresAt);
+      toast.success('2FA verified');
+      onSuccess();
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.error || 'Invalid code'),
+  });
+
+  return (
+    <div className="max-w-sm mx-auto pt-16">
+      <div className="bg-card border border-border rounded-lg p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <ShieldCheck size={20} className="text-primary" />
+          <h2 className="text-lg font-semibold">Two-factor verification</h2>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Settings hold sensitive credentials. Enter your authenticator code
+          (or a backup code) to continue.
+        </p>
+        <Input
+          autoFocus
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          placeholder="123456 or backup-code"
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && code) verify.mutate();
+          }}
+        />
+        <Button
+          onClick={() => verify.mutate()}
+          isLoading={verify.isPending}
+          disabled={code.length < 4}
+          className="w-full"
+        >
+          Verify
+        </Button>
+        <p className="text-xs text-muted-foreground text-center">
+          Lost access? Run <code className="font-mono bg-muted px-1 py-0.5 rounded">~/scripts/2fa-admin.sh disable &lt;username&gt;</code> on the host.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ── Profile ─────────────────────────────────────────────────────
 
 function ProfileTab() {
   const { user, updateUser } = useAuthStore();
@@ -66,9 +194,7 @@ function ProfileTab() {
       updateUser(data);
       toast.success('Profile updated');
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.error || 'Failed to update profile');
-    },
+    onError: (error: any) => toast.error(error?.response?.data?.error || 'Failed to update profile'),
   });
 
   const passwordMutation = useMutation({
@@ -78,40 +204,22 @@ function ProfileTab() {
       setNewPassword('');
       toast.success('Password changed');
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.error || 'Failed to change password');
-    },
+    onError: (error: any) => toast.error(error?.response?.data?.error || 'Failed to change password'),
   });
 
   return (
     <div className="space-y-8">
-      {/* Profile Info */}
       <div className="bg-card rounded-lg border border-border p-6">
         <h3 className="text-lg font-semibold mb-4">Profile Information</h3>
         <div className="space-y-4 max-w-md">
-          <Input
-            label="Username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
-          <Input
-            label="Email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          {profileMutation.isError && (
-            <p className="text-sm text-destructive">
-              {(profileMutation.error as any)?.response?.data?.error || 'Failed to update profile'}
-            </p>
-          )}
+          <Input label="Username" value={username} onChange={(e) => setUsername(e.target.value)} />
+          <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           <Button onClick={() => profileMutation.mutate()} isLoading={profileMutation.isPending}>
             Save Changes
           </Button>
         </div>
       </div>
 
-      {/* Change Password */}
       <div className="bg-card rounded-lg border border-border p-6">
         <h3 className="text-lg font-semibold mb-4">Change Password</h3>
         <div className="space-y-4 max-w-md">
@@ -130,11 +238,6 @@ function ProfileTab() {
             autoComplete="new-password"
             helperText="Minimum 8 characters"
           />
-          {passwordMutation.isError && (
-            <p className="text-sm text-destructive">
-              {(passwordMutation.error as any)?.response?.data?.error || 'Failed to change password'}
-            </p>
-          )}
           <Button
             onClick={() => passwordMutation.mutate()}
             isLoading={passwordMutation.isPending}
@@ -147,6 +250,8 @@ function ProfileTab() {
     </div>
   );
 }
+
+// ── API Keys (now requires 2FA on the backend) ─────────────────
 
 function ApiKeysTab() {
   const [keys, setKeys] = useState({ anthropic: '', openai: '', speechmatics: '' });
@@ -164,9 +269,7 @@ function ApiKeysTab() {
       setKeys({ anthropic: '', openai: '', speechmatics: '' });
       toast.success('API keys saved');
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.error || 'Failed to save API keys');
-    },
+    onError: (error: any) => toast.error(error?.response?.data?.error || 'Failed to save API keys'),
   });
 
   const renderKeyInput = (label: string, key: keyof typeof keys, placeholder: string) => (
@@ -209,6 +312,8 @@ function ApiKeysTab() {
   );
 }
 
+// ── Preferences ─────────────────────────────────────────────────
+
 function PreferencesTab() {
   const { theme, setTheme } = useThemeStore();
   const [editorFontSize, setEditorFontSize] = useState(14);
@@ -228,7 +333,6 @@ function PreferencesTab() {
     <div className="bg-card rounded-lg border border-border p-6">
       <h3 className="text-lg font-semibold mb-4">Preferences</h3>
       <div className="space-y-6 max-w-md">
-        {/* Theme */}
         <div>
           <label className="block text-sm font-medium mb-2">Theme</label>
           <div className="flex gap-2">
@@ -247,8 +351,6 @@ function PreferencesTab() {
             ))}
           </div>
         </div>
-
-        {/* Editor Font Size */}
         <div>
           <label className="block text-sm font-medium mb-2">Editor Font Size</label>
           <div className="flex items-center gap-3">
@@ -270,9 +372,154 @@ function PreferencesTab() {
               Save
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">Controls font size in terminal and code views (10-32px)</p>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Security (2FA enrollment / disable) ────────────────────────
+
+function SecurityTab({ enabled, onEnabledChange }: { enabled: boolean; onEnabledChange: () => void }) {
+  return enabled ? <Disable2FA onChanged={onEnabledChange} /> : <Enroll2FA onChanged={onEnabledChange} />;
+}
+
+function Enroll2FA({ onChanged }: { onChanged: () => void }) {
+  const qc = useQueryClient();
+  const [enrollment, setEnrollment] = useState<{
+    secret: string;
+    otpauthUrl: string;
+    backupCodes: string[];
+  } | null>(null);
+  const [code, setCode] = useState('');
+
+  const start = useMutation({
+    mutationFn: twofaService.enroll,
+    onSuccess: setEnrollment,
+    onError: (e: any) => toast.error(e?.response?.data?.error || 'Failed to start enrollment'),
+  });
+
+  const confirm = useMutation({
+    mutationFn: () => twofaService.confirm(code),
+    onSuccess: ({ stepUp }) => {
+      writeStepUp(stepUp.token, stepUp.expiresAt);
+      toast.success('Two-factor enabled');
+      qc.invalidateQueries({ queryKey: ['2fa-status'] });
+      setEnrollment(null);
+      setCode('');
+      onChanged();
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.error || 'Invalid code'),
+  });
+
+  return (
+    <div className="bg-card rounded-lg border border-border p-6 space-y-4">
+      <div className="flex items-center gap-2">
+        <ShieldAlert size={18} className="text-amber-500" />
+        <h3 className="text-lg font-semibold">Two-factor authentication</h3>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Settings holds API keys and other credentials. Enable TOTP-based 2FA
+        to require a 6-digit code on each visit. Compatible with any authenticator
+        app (1Password, Authy, Google Authenticator, etc.).
+      </p>
+
+      {!enrollment ? (
+        <Button onClick={() => start.mutate()} isLoading={start.isPending}>
+          <ShieldCheck size={14} className="mr-1.5" /> Begin enrollment
+        </Button>
+      ) : (
+        <div className="space-y-4">
+          <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Scan QR code in your authenticator app</p>
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
+                  enrollment.otpauthUrl
+                )}`}
+                alt="2FA QR"
+                className="rounded border border-border bg-white p-2"
+              />
+            </div>
+            <details className="text-xs">
+              <summary className="cursor-pointer text-muted-foreground">Or enter the secret manually</summary>
+              <code className="font-mono text-xs bg-background border border-border rounded px-2 py-1 block mt-2 break-all">
+                {enrollment.secret}
+              </code>
+            </details>
+          </div>
+
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
+            <p className="text-sm font-medium mb-2">Backup codes</p>
+            <p className="text-xs text-muted-foreground mb-2">
+              Save these now — each code works exactly once if you lose your authenticator.
+            </p>
+            <div className="grid grid-cols-2 gap-2 font-mono text-xs">
+              {enrollment.backupCodes.map((c) => (
+                <code key={c} className="px-2 py-1 bg-background border border-border rounded">
+                  {c}
+                </code>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Enter the 6-digit code from your app</label>
+            <Input
+              autoFocus
+              inputMode="numeric"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="123456"
+            />
+          </div>
+          <Button onClick={() => confirm.mutate()} isLoading={confirm.isPending} disabled={code.length !== 6}>
+            Confirm and enable
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Disable2FA({ onChanged }: { onChanged: () => void }) {
+  const qc = useQueryClient();
+  const [code, setCode] = useState('');
+
+  const disable = useMutation({
+    mutationFn: () => twofaService.disable(code),
+    onSuccess: () => {
+      clearStepUp();
+      qc.invalidateQueries({ queryKey: ['2fa-status'] });
+      toast.success('Two-factor disabled');
+      onChanged();
+      setCode('');
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.error || 'Invalid code'),
+  });
+
+  return (
+    <div className="bg-card rounded-lg border border-border p-6 space-y-4">
+      <div className="flex items-center gap-2">
+        <ShieldCheck size={18} className="text-green-500" />
+        <h3 className="text-lg font-semibold">Two-factor authentication is on</h3>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        To disable, enter your current TOTP code (or a backup code).
+      </p>
+      <Input
+        inputMode="numeric"
+        value={code}
+        onChange={(e) => setCode(e.target.value)}
+        placeholder="123456 or backup-code"
+      />
+      <Button variant="danger" onClick={() => disable.mutate()} isLoading={disable.isPending} disabled={code.length < 4}>
+        Disable 2FA
+      </Button>
+      <p className="text-xs text-muted-foreground">
+        Locked out? Run on the host:{' '}
+        <code className="font-mono bg-muted px-1 py-0.5 rounded">~/scripts/2fa-admin.sh disable &lt;username&gt;</code>
+      </p>
     </div>
   );
 }

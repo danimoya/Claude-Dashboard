@@ -53,8 +53,16 @@ services:
       CB_API_KEY: ${CB_API_KEY:-}
       SPEECHMATICS_API_KEY: ${SPEECHMATICS_API_KEY:-}
       PROJECTS_BASE_PATH: /app/projects
+      # Tmux integration: socket lives at /tmp/tmux-1001/default on the host.
+      TMUX_SOCKET: /tmp/tmux-1001/default
+      TMUX_HOST_UID: "1001"
     volumes:
       - ${PROJECTS_PATH:-./projects}:/app/projects
+      # Mount the host tmux socket dir so the container can attach to host
+      # sessions without needing its own tmux server.
+      - /tmp/tmux-1001:/tmp/tmux-1001
+      # Mount the project root so admin scripts are picked up live.
+      - ./scripts:/app/scripts:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

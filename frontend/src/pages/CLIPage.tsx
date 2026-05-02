@@ -1,6 +1,9 @@
 /**
  * CLI Page
- * Main page for CLI session management
+ *
+ * Tabbed view: Tmux (host sessions, primary) and CLI (DB-tracked claude/cb
+ * sessions). Tmux side lists all host sessions and lets the operator attach,
+ * stream the pane live, and send keys (including Ctrl+<letter> hotkeys).
  */
 
 import { useState } from 'react';
@@ -10,12 +13,48 @@ import { cliService } from '../services/cli.service';
 import { projectService } from '../services/projectService';
 import SessionList from '../components/cli/SessionList';
 import CLITerminal from '../components/cli/CLITerminal';
+import TmuxView from '../components/cli/TmuxView';
+import Tabs from '../components/Tabs';
 import Button from '../components/Button';
 import { toast } from '../stores/toastStore';
 import type { CLISession, ProjectType } from '@shared/types';
 
 export default function CLIPage() {
   const { projectId: routeProjectId } = useParams<{ projectId: string }>();
+  const [tab, setTab] = useState<'tmux' | 'cli'>('tmux');
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="border-b border-border px-6 py-3 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Terminals</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Host tmux sessions and tracked CLI sessions
+          </p>
+        </div>
+      </div>
+
+      <div className="px-6 pt-3 border-b border-border">
+        <Tabs
+          tabs={[
+            { id: 'tmux', label: 'Tmux' },
+            { id: 'cli', label: 'CLI' },
+          ]}
+          activeTab={tab}
+          onChange={(id) => setTab(id as 'tmux' | 'cli')}
+        />
+      </div>
+
+      <div className="flex-1 overflow-hidden">
+        {tab === 'tmux' ? <TmuxView className="h-full" /> : <CLITab routeProjectId={routeProjectId} />}
+      </div>
+    </div>
+  );
+}
+
+// ── CLI Tab (preserved from old CLIPage) ────────────────────────
+
+function CLITab({ routeProjectId }: { routeProjectId?: string }) {
   const queryClient = useQueryClient();
   const [selectedSession, setSelectedSession] = useState<CLISession | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -27,7 +66,6 @@ export default function CLIPage() {
     args: [] as string[],
   });
 
-  // Fetch projects for the selector when no routeProjectId
   const { data: projects } = useQuery({
     queryKey: ['projects'],
     queryFn: projectService.getProjects,
@@ -53,7 +91,6 @@ export default function CLIPage() {
   const handleCreateSession = () => {
     const pid = routeProjectId || newSession.projectId;
     if (!pid || !newSession.command) return;
-
     createSessionMutation.mutate({
       projectId: pid,
       type: newSession.type,
@@ -63,62 +100,34 @@ export default function CLIPage() {
   };
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="border-b border-border px-6 py-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-foreground">CLI Sessions</h1>
-          <Button onClick={() => setShowCreateModal(true)} size="sm">
-            New Session
+    <div className="flex h-full">
+      <div className="w-96 border-r border-border bg-muted/30 overflow-y-auto p-4">
+        <div className="mb-3">
+          <Button onClick={() => setShowCreateModal(true)} size="sm" className="w-full">
+            New CLI Session
           </Button>
         </div>
+        <SessionList
+          projectId={activeProjectId}
+          onSelectSession={setSelectedSession}
+          selectedSessionId={selectedSession?.id}
+        />
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Session List Sidebar */}
-        <div className="w-96 border-r border-border bg-muted/30 overflow-y-auto p-4">
-          <SessionList
-            projectId={activeProjectId}
-            onSelectSession={setSelectedSession}
-            selectedSessionId={selectedSession?.id}
-          />
-        </div>
-
-        {/* Terminal */}
-        <div className="flex-1 overflow-hidden">
-          {selectedSession ? (
-            <CLITerminal sessionId={selectedSession.id} />
-          ) : (
-            <div className="h-full flex items-center justify-center text-muted-foreground">
-              <div className="text-center">
-                <svg
-                  className="mx-auto h-12 w-12 text-muted-foreground/40 mb-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
-                <p className="text-lg">Select a session to view output</p>
-                <p className="text-sm mt-1">or create a new one</p>
-              </div>
-            </div>
-          )}
-        </div>
+      <div className="flex-1 overflow-hidden">
+        {selectedSession ? (
+          <CLITerminal sessionId={selectedSession.id} />
+        ) : (
+          <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+            Select a session to view output
+          </div>
+        )}
       </div>
 
-      {/* Create Session Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fade-in">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-card text-card-foreground rounded-lg shadow-xl p-6 w-full max-w-md border border-border">
             <h2 className="text-xl font-bold mb-4">Create New Session</h2>
-
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -126,16 +135,13 @@ export default function CLIPage() {
               }}
               className="space-y-4"
             >
-              {/* Project selector — only shown when no projectId in URL */}
               {!routeProjectId && (
                 <div>
                   <label className="block text-sm font-medium mb-1">Project</label>
                   <select
                     value={newSession.projectId}
-                    onChange={(e) =>
-                      setNewSession({ ...newSession, projectId: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
+                    onChange={(e) => setNewSession({ ...newSession, projectId: e.target.value })}
+                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
                     required
                   >
                     <option value="">Select a project...</option>
@@ -147,7 +153,6 @@ export default function CLIPage() {
                   </select>
                 </div>
               )}
-
               <div>
                 <label className="block text-sm font-medium mb-1">Type</label>
                 <select
@@ -155,13 +160,12 @@ export default function CLIPage() {
                   onChange={(e) =>
                     setNewSession({ ...newSession, type: e.target.value as ProjectType })
                   }
-                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
                 >
                   <option value="claude-code">Claude Code</option>
                   <option value="claude-b">Claude-B</option>
                 </select>
               </div>
-
               <div>
                 <label className="block text-sm font-medium mb-1">Command</label>
                 <input
@@ -169,11 +173,10 @@ export default function CLIPage() {
                   value={newSession.command}
                   onChange={(e) => setNewSession({ ...newSession, command: e.target.value })}
                   placeholder="e.g., chat"
-                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
                   required
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium mb-1">Arguments (optional)</label>
                 <input
@@ -182,19 +185,10 @@ export default function CLIPage() {
                   onChange={(e) =>
                     setNewSession({ ...newSession, args: e.target.value.split(' ') })
                   }
-                  placeholder="e.g., --verbose --debug"
-                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-ring focus:outline-none"
+                  placeholder="e.g., --verbose"
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
                 />
               </div>
-
-              {createSessionMutation.isError && (
-                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
-                  <p className="text-sm text-destructive">
-                    {(createSessionMutation.error as any)?.response?.data?.error || 'Failed to create session'}
-                  </p>
-                </div>
-              )}
-
               <div className="flex gap-3">
                 <Button
                   type="submit"
@@ -204,12 +198,7 @@ export default function CLIPage() {
                 >
                   Create
                 </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setShowCreateModal(false)}
-                  className="flex-1"
-                >
+                <Button type="button" variant="ghost" onClick={() => setShowCreateModal(false)} className="flex-1">
                   Cancel
                 </Button>
               </div>

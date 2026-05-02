@@ -17,13 +17,22 @@ export const api = axios.create({
   },
 });
 
-// Request interceptor - Add auth token
+// Request interceptor - Add auth token + 2FA step-up token (if present)
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const { tokens } = useAuthStore.getState();
 
     if (tokens?.accessToken) {
       config.headers.Authorization = `Bearer ${tokens.accessToken}`;
+    }
+
+    // Attach a 2FA step-up token for routes that require it (settings).
+    // Stored in sessionStorage so it doesn't survive a tab close.
+    try {
+      const stepUp = sessionStorage.getItem('2faToken');
+      if (stepUp) config.headers['x-2fa-token'] = stepUp;
+    } catch {
+      // sessionStorage may be unavailable in private mode — ignore.
     }
 
     return config;

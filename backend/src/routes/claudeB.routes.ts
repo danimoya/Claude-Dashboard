@@ -151,4 +151,31 @@ router.post('/notifications/read-all', authenticate, async (_req: Request, res: 
   }
 });
 
+router.delete('/notifications/:id', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await cbService.deleteNotification(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/notifications/delete-read', authenticate, async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const count = await cbService.deleteReadNotifications();
+    res.json({ success: true, data: { deleted: count } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/notifications/delete-all', authenticate, async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const count = await cbService.deleteAllNotifications();
+    res.json({ success: true, data: { deleted: count } });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

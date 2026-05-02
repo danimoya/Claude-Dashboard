@@ -10,6 +10,8 @@ import { config } from '../config/env.js';
 import type { CreateProjectDto, UpdateProjectDto } from '@shared/schemas';
 import path from 'path';
 import { mkdir, stat } from 'fs/promises';
+import { tmuxService, TmuxService } from './tmux.service.js';
+import { logger } from '../utils/logger.js';
 
 export class ProjectService {
   private projectRepository = AppDataSource.getRepository(Project);
@@ -55,6 +57,24 @@ export class ProjectService {
     });
 
     await this.projectRepository.save(project);
+
+    // Auto-create a tmux session named after the project slug. We don't
+    // throw on failure: tmux may be unavailable in the dev container, and
+    // project creation should still succeed.
+    try {
+      const slug = TmuxService.slugify(project.name);
+      const exists = await tmuxService.hasSession(slug);
+      if (!exists) {
+        await tmuxService.newSession(slug, { cwd: projectPath });
+        project.metadata = { ...(project.metadata ?? {}), tmuxSession: slug };
+        await this.projectRepository.save(project);
+      } else {
+        project.metadata = { ...(project.metadata ?? {}), tmuxSession: slug };
+        await this.projectRepository.save(project);
+      }
+    } catch (err) {
+      logger.warn(`Project tmux auto-create skipped: ${(err as Error)?.message}`);
+    }
 
     return project;
   }

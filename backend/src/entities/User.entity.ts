@@ -46,6 +46,18 @@ export class User {
   @Column({ default: true })
   isActive!: boolean;
 
+  // ── Two-factor authentication (TOTP) ─────────────────────────
+  // 2FA gates entry to /settings, which holds API keys and other secrets.
+  // Reset/disable from CLI: scripts/2fa-admin.sh (docker exec helper).
+  @Column({ default: false })
+  twofaEnabled!: boolean;
+
+  @Column({ select: false, nullable: true })
+  twofaSecret?: string;
+
+  @Column({ type: 'jsonb', nullable: true, select: false })
+  twofaBackupCodes?: string[];
+
   @CreateDateColumn()
   createdAt!: Date;
 
@@ -89,7 +101,7 @@ export class User {
    * Convert to JSON (exclude sensitive fields)
    */
   toJSON() {
-    const { passwordHash, password, ...user } = this;
+    const { passwordHash, password, twofaSecret, twofaBackupCodes, ...user } = this;
     return user;
   }
 }

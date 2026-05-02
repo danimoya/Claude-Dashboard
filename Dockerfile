@@ -29,7 +29,9 @@ RUN cd backend && npx tsc --build --force
 # Stage 2: Production
 FROM node:18-alpine AS production
 
-RUN apk add --no-cache nginx python3 make g++
+# tmux is required for the /cli and project terminal panels — they call
+# `tmux -S /tmp/tmux-1001/default …` against the host's mounted socket.
+RUN apk add --no-cache nginx python3 make g++ tmux su-exec
 
 WORKDIR /app
 
@@ -59,9 +61,10 @@ RUN mkdir -p /app/logs
 # Copy nginx config
 COPY nginx.conf /etc/nginx/http.d/default.conf
 
-# Copy entrypoint
+# Copy entrypoint + admin scripts
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+COPY scripts/ /app/scripts/
+RUN chmod +x /entrypoint.sh /app/scripts/*.mjs /app/scripts/*.sh 2>/dev/null || true
 
 EXPOSE 80
 

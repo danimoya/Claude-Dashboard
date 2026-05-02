@@ -172,6 +172,45 @@ export class ClaudeBService {
     await this.request('/api/notifications/read-all', { method: 'POST' });
   }
 
+  async deleteNotification(id: string): Promise<void> {
+    await this.request(`/api/notifications/${id}`, { method: 'DELETE' });
+  }
+
+  /**
+   * Fan out DELETE for each read notification. The cb daemon doesn't expose
+   * a bulk delete endpoint; failures are logged but don't abort the batch.
+   */
+  async deleteReadNotifications(): Promise<number> {
+    const all = (await this.getNotifications()) as any;
+    const list: any[] = Array.isArray(all) ? all : all?.notifications || [];
+    let deleted = 0;
+    for (const n of list) {
+      if (!n?.read) continue;
+      try {
+        await this.deleteNotification(n.id);
+        deleted++;
+      } catch (err) {
+        logger.warn(`Failed to delete read notification ${n.id}: ${(err as Error)?.message}`);
+      }
+    }
+    return deleted;
+  }
+
+  async deleteAllNotifications(): Promise<number> {
+    const all = (await this.getNotifications()) as any;
+    const list: any[] = Array.isArray(all) ? all : all?.notifications || [];
+    let deleted = 0;
+    for (const n of list) {
+      try {
+        await this.deleteNotification(n.id);
+        deleted++;
+      } catch (err) {
+        logger.warn(`Failed to delete notification ${n.id}: ${(err as Error)?.message}`);
+      }
+    }
+    return deleted;
+  }
+
   // ── Health ────────────────────────────────────────────────
 
   async health(): Promise<{ status: string; timestamp: string; sessions: number }> {

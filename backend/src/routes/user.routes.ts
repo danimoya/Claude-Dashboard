@@ -5,6 +5,7 @@
 
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { authenticate } from '../middleware/auth.middleware.js';
+import { require2FA } from '../middleware/twofa.middleware.js';
 import { AppDataSource } from '../config/database.js';
 import { User } from '../entities/User.entity.js';
 import { AppError } from '../utils/AppError.js';
@@ -80,7 +81,7 @@ router.patch('/password', async (req: Request, res: Response, next: NextFunction
 /**
  * PUT /api/v1/users/api-keys
  */
-router.put('/api-keys', async (req: Request, res: Response, next: NextFunction) => {
+router.put('/api-keys', require2FA, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const keys = UpdateApiKeysSchema.parse(req.body);
     const user = await userRepository.findOneBy({ id: req.userId });

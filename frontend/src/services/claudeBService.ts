@@ -20,8 +20,20 @@ export interface CBNotification {
   id: string;
   sessionId: string;
   sessionName?: string;
-  prompt: string;
-  duration: number;
+  /** cb event type, e.g. `prompt.completed`, `prompt.failed`. */
+  type?: string;
+  /** Working directory the session was launched from. */
+  goal?: string;
+  /** Short preview (≈ first ~250 chars). */
+  resultPreview?: string;
+  /** Full body (markdown / HTML allowed). */
+  resultFull?: string;
+  /** CLI command suggestion the daemon attaches (e.g., `cb -i`). */
+  viewCommand?: string;
+  /** Legacy fields (kept for compat with older payloads). */
+  prompt?: string;
+  duration?: number;
+  durationMs?: number;
   exitCode: number;
   timestamp: string;
   read: boolean;
@@ -85,7 +97,12 @@ export const claudeBService = {
   async getNotifications(unread?: boolean): Promise<CBNotification[]> {
     const qs = unread !== undefined ? `?unread=${unread}` : '';
     const res = await api.get(`/api/v1/cb/notifications${qs}`);
-    return res.data.data;
+    const payload = res.data.data;
+    // cb daemon returns either {notifications:[...]} or [...] depending on
+    // version — accept both.
+    if (Array.isArray(payload)) return payload;
+    if (payload && Array.isArray(payload.notifications)) return payload.notifications;
+    return [];
   },
 
   async getNotificationCount(): Promise<{ total: number; unread: number }> {
@@ -99,5 +116,19 @@ export const claudeBService = {
 
   async markAllRead(): Promise<void> {
     await api.post('/api/v1/cb/notifications/read-all');
+  },
+
+  async deleteNotification(id: string): Promise<void> {
+    await api.delete(`/api/v1/cb/notifications/${id}`);
+  },
+
+  async deleteReadNotifications(): Promise<{ deleted: number }> {
+    const r = await api.post('/api/v1/cb/notifications/delete-read');
+    return r.data.data;
+  },
+
+  async deleteAllNotifications(): Promise<{ deleted: number }> {
+    const r = await api.post('/api/v1/cb/notifications/delete-all');
+    return r.data.data;
   },
 };

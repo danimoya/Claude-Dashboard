@@ -19,6 +19,7 @@ import { errorHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { securityHeaders, sanitizeInput } from './middleware/security.middleware.js';
 import { initializeCLIGateway } from './websocket/cli.gateway.js';
+import { initializeTmuxGateway } from './websocket/tmux.gateway.js';
 import { registerCBStreamProxy } from './websocket/cb-stream.proxy.js';
 import { ClaudeWrapperService } from './services/claude-wrapper.service.js';
 import { CLIOutputParserService } from './services/cli-output-parser.service.js';
@@ -31,6 +32,8 @@ import cliRoutes from './routes/cli.routes.js';
 import fileRoutes from './routes/file.routes.js';
 import userRoutes from './routes/user.routes.js';
 import claudeBRoutes from './routes/claudeB.routes.js';
+import tmuxRoutes from './routes/tmux.routes.js';
+import twofaRoutes from './routes/twofa.routes.js';
 
 // Initialize Express app
 const app = express();
@@ -91,8 +94,10 @@ app.get('/health', (_req: Request, res: Response) => {
 
 // API routes
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/auth/2fa', twofaRoutes);
 app.use('/api/v1/projects', projectRoutes);
 app.use('/api/v1/cli', cliRoutes);
+app.use('/api/v1/tmux', tmuxRoutes);
 app.use('/api/v1/files', fileRoutes);
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/cb', claudeBRoutes);
@@ -148,6 +153,9 @@ async function startServer() {
     const sessionService = new CLISessionService();
     initializeCLIGateway(io, claudeWrapper, outputParser, sessionService);
     logger.info('CLI WebSocket gateway initialized');
+
+    // Initialize Tmux WebSocket gateway
+    initializeTmuxGateway(io);
 
     // Initialize CB stream WebSocket proxy
     registerCBStreamProxy(httpServer);
