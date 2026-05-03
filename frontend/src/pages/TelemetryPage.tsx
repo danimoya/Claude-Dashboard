@@ -357,7 +357,7 @@ interface OfflinePayload {
   timestamp: string;
 }
 
-type OfflineFormat = 'curl' | 'wget' | 'httpie' | 'powershell' | 'json';
+type OfflineFormat = 'url' | 'curl' | 'wget' | 'httpie' | 'powershell' | 'json';
 
 function buildCommand(fmt: OfflineFormat, p: OfflinePayload): string {
   // The payload's `timestamp` field is regenerated at "render time" (the
@@ -366,6 +366,18 @@ function buildCommand(fmt: OfflineFormat, p: OfflinePayload): string {
   // string; we let the format-specific renderer decide how to pass it.
   const json = JSON.stringify(p);
   switch (fmt) {
+    case 'url': {
+      // Browser-paste path: the receiver's GET /v1/ping accepts the
+      // payload as query params and returns a small human-readable
+      // confirmation page. No terminal, no curl, just an address bar.
+      const qs = new URLSearchParams({
+        installation_id: p.installation_id,
+        dashboard_version: p.dashboard_version,
+        timestamp: p.timestamp,
+      });
+      if (p.heliosdb_version) qs.set('heliosdb_version', p.heliosdb_version);
+      return `${RECEIVER_PING_URL}?${qs.toString()}`;
+    }
     case 'curl':
       // --silent -S: hide progress, still show errors.
       // --max-time: cap at 10s so a hung receiver doesn't lock the script.
@@ -417,6 +429,7 @@ function escapeForSingleQuotedShell(s: string): string {
 }
 
 const FORMATS: { id: OfflineFormat; label: string; lang: string }[] = [
+  { id: 'url', label: 'URL (browser)', lang: 'url' },
   { id: 'curl', label: 'curl', lang: 'bash' },
   { id: 'wget', label: 'wget', lang: 'bash' },
   { id: 'httpie', label: 'HTTPie', lang: 'bash' },
@@ -431,7 +444,8 @@ function OfflineSubmission({
   payload: OfflinePayload;
   onRefresh: () => void;
 }) {
-  const [fmt, setFmt] = useState<OfflineFormat>('curl');
+  // URL (browser-paste) is the lowest-friction path — pick it by default.
+  const [fmt, setFmt] = useState<OfflineFormat>('url');
   const [copied, setCopied] = useState(false);
   const command = buildCommand(fmt, payload);
 
@@ -445,6 +459,13 @@ function OfflineSubmission({
     }
   };
 
+  const hint =
+    fmt === 'url'
+      ? 'Copy the URL, open it in any browser on a machine with internet access. The receiver returns a tiny "Ping received ✓" page.'
+      : fmt === 'json'
+      ? 'Body for any HTTP client you prefer. POST it to ' + RECEIVER_PING_URL + '.'
+      : 'Run from any shell on a machine with internet access. Exit 0 and `{"ok":true}` means the ping was counted.';
+
   return (
     <section className="bg-card border border-border rounded-lg p-6 space-y-4">
       <div>
@@ -454,8 +475,8 @@ function OfflineSubmission({
         </h2>
         <p className="text-sm text-muted-foreground mt-1">
           On an air-gapped or egress-restricted host the dashboard can't reach the
-          telemetry endpoint directly. Copy the command below, run it from any machine
-          with internet access. The receiver dedupes by{' '}
+          telemetry endpoint directly. Pick a format below, copy the result, and submit
+          from any machine with internet access. The receiver dedupes by{' '}
           <code className="text-xs">SHA-256(salt || ip || installation_id)</code> per
           ISO week — a one-off submission from a different IP still counts your install
           exactly once.
@@ -475,6 +496,11 @@ function OfflineSubmission({
             }
           >
             {f.label}
+            {f.id === 'url' && (
+              <span className="ml-1.5 text-[10px] uppercase tracking-wide opacity-80">
+                preferred
+              </span>
+            )}
           </button>
         ))}
         <span className="ml-auto flex items-center gap-1.5">
@@ -488,15 +514,34 @@ function OfflineSubmission({
         </span>
       </div>
 
-      <pre className="bg-zinc-950 dark:bg-zinc-900 text-zinc-100 rounded-md p-4 text-xs leading-relaxed overflow-x-auto border border-zinc-800 whitespace-pre">
+      <p className="text-xs text-muted-foreground">{hint}</p>
+
+      <pre className="bg-zinc-950 dark:bg-zinc-900 text-zinc-100 rounded-md p-4 text-xs leading-relaxed overflow-x-auto border border-zinc-800 whitespace-pre-wrap break-all">
         {command}
       </pre>
+
+      {fmt === 'url' && (
+        <div className="flex flex-wrap gap-2 items-center">
+          <a
+            href={command}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90"
+          >
+            <ExternalLink size={13} /> Open in browser
+          </a>
+          <span className="text-xs text-muted-foreground">
+            Useful when this dashboard *itself* has internet — verifies the URL works
+            before you copy it elsewhere.
+          </span>
+        </div>
+      )}
 
       <Footnote>
         Timestamp shown is <code>{payload.timestamp}</code> — UTC at the moment this
         section rendered. Hit <strong>Refresh timestamp</strong> to mint a new one
-        before copying. Receiver accepts any RFC&nbsp;3339 timestamp so the value isn't
-        load-bearing for dedupe; it's there for diagnostics.
+        before copying. Receiver accepts any RFC&nbsp;3339 timestamp; the value isn't
+        load-bearing for dedupe (week + hash is), it's stored for diagnostics.
       </Footnote>
     </section>
   );

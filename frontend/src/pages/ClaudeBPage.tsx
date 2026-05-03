@@ -22,7 +22,6 @@ import {
   Send,
   Square,
   User as UserIcon,
-  Zap,
 } from 'lucide-react';
 import { claudeBService } from '../services/claudeBService';
 import { useCBStream } from '../hooks/useCBStream';
@@ -367,11 +366,6 @@ function SessionDetail({
     toast.success(`Transcript refreshed (${count} turn${count === 1 ? '' : 's'})`);
   };
 
-  const handleStream = () => {
-    stream.reconnect();
-    toast.success(stream.connected ? 'Reconnecting stream…' : 'Attaching stream…');
-  };
-
   return (
     <div className="border border-border rounded-lg bg-card overflow-hidden flex flex-col h-[70vh] min-h-[420px]">
       <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-muted/30 flex-wrap gap-2">
@@ -389,14 +383,6 @@ function SessionDetail({
           <span className="text-xs text-muted-foreground">· {turns.length} turn{turns.length === 1 ? '' : 's'}</span>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={handleStream}
-            title={stream.connected ? 'Reconnect live stream' : 'Attach to live output (Claude-B watch)'}
-          >
-            <Zap size={14} className="mr-1" /> {stream.connected ? 'Reconnect' : 'Attach'}
-          </Button>
           <Button size="sm" variant="ghost" onClick={handleRefresh} title="Refresh transcript">
             <RefreshCw size={14} />
           </Button>

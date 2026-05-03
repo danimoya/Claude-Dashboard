@@ -5,7 +5,6 @@
 
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { authenticate } from '../middleware/auth.middleware.js';
-import { require2FA } from '../middleware/twofa.middleware.js';
 import { AppDataSource } from '../config/database.js';
 import { User } from '../entities/User.entity.js';
 import { AppError } from '../utils/AppError.js';
@@ -24,12 +23,6 @@ const UpdateProfileSchema = z.object({
 const ChangePasswordSchema = z.object({
   currentPassword: z.string().min(1),
   newPassword: z.string().min(8),
-});
-
-const UpdateApiKeysSchema = z.object({
-  anthropic: z.string().optional(),
-  openai: z.string().optional(),
-  speechmatics: z.string().optional(),
 });
 
 const UpdatePreferencesSchema = z.object({
@@ -73,24 +66,6 @@ router.patch('/password', async (req: Request, res: Response, next: NextFunction
     await userRepository.save(user);
 
     res.json({ success: true, message: 'Password updated' });
-  } catch (error) {
-    next(error);
-  }
-});
-
-/**
- * PUT /api/v1/users/api-keys
- */
-router.put('/api-keys', require2FA, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const keys = UpdateApiKeysSchema.parse(req.body);
-    const user = await userRepository.findOneBy({ id: req.userId });
-    if (!user) throw AppError.notFound('User not found');
-
-    user.apiKeys = { ...user.apiKeys, ...keys };
-    await userRepository.save(user);
-
-    res.json({ success: true, message: 'API keys updated' });
   } catch (error) {
     next(error);
   }
