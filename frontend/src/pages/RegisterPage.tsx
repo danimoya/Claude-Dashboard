@@ -29,7 +29,7 @@ export default function RegisterPage() {
       authService.register(username, password, email),
     onSuccess: (data) => {
       setAuth(data.user, data.tokens);
-      navigate('/dashboard');
+      navigate('/sessions');
     },
   });
 

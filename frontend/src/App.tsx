@@ -4,11 +4,11 @@ import ErrorBoundary from './components/ErrorBoundary';
 import AppLayout from './components/layout/AppLayout';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
-import DashboardPage from './pages/DashboardPage';
 import ProjectWorkspacePage from './pages/ProjectWorkspacePage';
 import SettingsPage from './pages/SettingsPage';
 import CLIPage from './pages/CLIPage';
-import BackgroundTasksPage from './pages/BackgroundTasksPage';
+import ClaudeBPage from './pages/ClaudeBPage';
+import InboxPage from './pages/InboxPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -18,7 +18,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function GuestRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  if (isAuthenticated) return <Navigate to="/dashboard" replace />;
+  if (isAuthenticated) return <Navigate to="/sessions" replace />;
   return <>{children}</>;
 }
 
@@ -28,34 +28,10 @@ function App() {
       <BrowserRouter>
         <Routes>
           {/* Public routes */}
-          <Route
-            path="/login"
-            element={
-              <GuestRoute>
-                <LoginPage />
-              </GuestRoute>
-            }
-          />
-          <Route
-            path="/register"
-            element={
-              <GuestRoute>
-                <RegisterPage />
-              </GuestRoute>
-            }
-          />
+          <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
+          <Route path="/register" element={<GuestRoute><RegisterPage /></GuestRoute>} />
 
           {/* Protected routes with app shell */}
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <DashboardPage />
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
           <Route
             path="/projects/:id"
             element={
@@ -65,7 +41,7 @@ function App() {
             }
           />
           <Route
-            path="/cli/:projectId?"
+            path="/sessions/:projectId?"
             element={
               <ProtectedRoute>
                 <AppLayout>
@@ -75,11 +51,21 @@ function App() {
             }
           />
           <Route
-            path="/tasks"
+            path="/claude-b"
             element={
               <ProtectedRoute>
                 <AppLayout>
-                  <BackgroundTasksPage />
+                  <ClaudeBPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/inbox"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <InboxPage />
                 </AppLayout>
               </ProtectedRoute>
             }
@@ -95,8 +81,14 @@ function App() {
             }
           />
 
-          {/* Default redirect */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          {/* Back-compat redirects from the previous URL scheme */}
+          <Route path="/dashboard" element={<Navigate to="/sessions" replace />} />
+          <Route path="/projects" element={<Navigate to="/sessions" replace />} />
+          <Route path="/cli" element={<Navigate to="/sessions" replace />} />
+          <Route path="/tasks" element={<Navigate to="/claude-b" replace />} />
+
+          {/* Default */}
+          <Route path="*" element={<Navigate to="/sessions" replace />} />
         </Routes>
       </BrowserRouter>
     </ErrorBoundary>

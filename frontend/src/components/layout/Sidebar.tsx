@@ -7,9 +7,9 @@ import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { clsx } from 'clsx';
 import {
-  LayoutDashboard,
   Terminal,
-  Zap,
+  Bot,
+  Inbox,
   Settings,
   LogOut,
   PanelLeftClose,
@@ -26,10 +26,10 @@ interface SidebarProps {
   onClose?: () => void;
 }
 
-const navItems: { label: string; icon: typeof LayoutDashboard; path: string; badgeKey?: string }[] = [
-  { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
-  { label: 'CLI Sessions', icon: Terminal, path: '/cli' },
-  { label: 'Background Tasks', icon: Zap, path: '/tasks', badgeKey: 'cb-unread' },
+const navItems: { label: string; icon: typeof Terminal; path: string; badgeKey?: string }[] = [
+  { label: 'Sessions', icon: Terminal, path: '/sessions' },
+  { label: 'Claude-B', icon: Bot, path: '/claude-b' },
+  { label: 'Inbox', icon: Inbox, path: '/inbox', badgeKey: 'cb-unread' },
   { label: 'Settings', icon: Settings, path: '/settings' },
 ];
 
@@ -57,11 +57,11 @@ export default function Sidebar({ collapsed, onToggleCollapse, onClose }: Sideba
     >
       {/* Brand / Logo */}
       <div className="flex h-14 items-center justify-between px-3 border-b border-border">
-        <Link to="/dashboard" className="flex items-center gap-2 overflow-hidden">
+        <Link to="/sessions" className="flex items-center gap-2 overflow-hidden">
           <Sparkles className="h-6 w-6 shrink-0 text-primary" />
           {!collapsed && (
             <span className="text-lg font-semibold text-card-foreground whitespace-nowrap">
-              Claude
+              Claude Dashboard
             </span>
           )}
         </Link>

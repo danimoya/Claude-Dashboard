@@ -11,9 +11,19 @@ interface HeaderProps {
   onMobileMenuToggle: () => void;
 }
 
-function capitalize(str: string): string {
-  if (!str) return '';
-  return str.charAt(0).toUpperCase() + str.slice(1);
+// Friendly labels for the routes that don't capitalise cleanly.
+const ROUTE_LABEL: Record<string, string> = {
+  'claude-b': 'Claude-B',
+  inbox: 'Inbox',
+  sessions: 'Sessions',
+  projects: 'Projects',
+  settings: 'Settings',
+};
+
+function labelFor(segment: string): string {
+  if (!segment) return '';
+  if (ROUTE_LABEL[segment]) return ROUTE_LABEL[segment];
+  return segment.charAt(0).toUpperCase() + segment.slice(1);
 }
 
 export default function Header({ onMobileMenuToggle }: HeaderProps) {
@@ -24,7 +34,7 @@ export default function Header({ onMobileMenuToggle }: HeaderProps) {
     const path = '/' + pathSegments.slice(0, index + 1).join('/');
     const isLast = index === pathSegments.length - 1;
 
-    return { label: capitalize(segment), path, isLast };
+    return { label: labelFor(segment), path, isLast };
   });
 
   return (

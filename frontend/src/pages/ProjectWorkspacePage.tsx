@@ -26,7 +26,7 @@ export default function ProjectWorkspacePage() {
   });
 
   if (!projectId) {
-    navigate('/dashboard');
+    navigate('/sessions');
     return null;
   }
 
@@ -43,8 +43,8 @@ export default function ProjectWorkspacePage() {
       <div className="h-full flex items-center justify-center">
         <div className="text-center">
           <p className="text-muted-foreground mb-4">Project not found</p>
-          <button onClick={() => navigate('/dashboard')} className="text-primary hover:underline">
-            Back to Dashboard
+          <button onClick={() => navigate('/sessions')} className="text-primary hover:underline">
+            Back to Sessions
           </button>
         </div>
       </div>
@@ -57,9 +57,9 @@ export default function ProjectWorkspacePage() {
       <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-card">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate('/sessions')}
             className="p-1.5 rounded-md hover:bg-accent text-muted-foreground"
-            title="Back to Dashboard"
+            title="Back to Sessions"
           >
             <ArrowLeft size={18} />
           </button>

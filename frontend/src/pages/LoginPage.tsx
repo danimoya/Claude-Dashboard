@@ -24,7 +24,7 @@ export default function LoginPage() {
     mutationFn: authService.login,
     onSuccess: (data) => {
       setAuth(data.user, data.tokens);
-      navigate('/dashboard');
+      navigate('/sessions');
     },
   });
 
