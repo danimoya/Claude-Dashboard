@@ -19,6 +19,8 @@ import {
   Loader2,
   Mail,
   MailOpen,
+  RefreshCw,
+  Terminal,
   Trash2,
   XCircle,
 } from 'lucide-react';
@@ -31,9 +33,31 @@ import { toast } from '../stores/toastStore';
 
 type FilterId = 'all' | 'unread' | 'read';
 
+const ALL_GROUPS = '__all__';
+
+/**
+ * Pull the session-name prefix that maps onto a host tmux session — same
+ * grouping users see on /sessions. Notifications carry sessionId in the
+ * form `tmux:<host>:<window>.<pane>` and sessionName as
+ * `<host>:<window>.<pane> ⠂ <title>`. Both expose `<host>` as the first
+ * dot-or-colon-delimited token; we prefer sessionId (more deterministic),
+ * fall through to sessionName, fall back to `(other)`.
+ */
+function sessionGroup(n: { sessionId?: string; sessionName?: string }): string {
+  const id = n.sessionId || '';
+  if (id.startsWith('tmux:')) {
+    const tail = id.slice('tmux:'.length);
+    const stop = tail.search(/[:.\s]/);
+    return stop === -1 ? tail : tail.slice(0, stop);
+  }
+  const m = (n.sessionName || id).match(/^([A-Za-z0-9._-]+)/);
+  return m ? m[1] : '(other)';
+}
+
 export default function InboxPage() {
   const qc = useQueryClient();
   const [filter, setFilter] = useState<FilterId>('all');
+  const [groupFilter, setGroupFilter] = useState<string>(ALL_GROUPS);
   const [openId, setOpenId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<null | {
     title: string;
@@ -49,16 +73,39 @@ export default function InboxPage() {
     refetchInterval: 10_000,
   });
 
-  const items = useMemo(() => {
+  // Sort newest-first (DESC) for both the rail and the message viewer.
+  // We sort the full list once, then the filters slice it; this keeps the
+  // unread-count math consistent and avoids reshuffling on filter toggles.
+  const sorted = useMemo(() => {
     const list = notifications ?? [];
-    if (filter === 'unread') return list.filter((n) => !n.read);
-    if (filter === 'read') return list.filter((n) => n.read);
+    return [...list].sort((a, b) => +new Date(b.timestamp) - +new Date(a.timestamp));
+  }, [notifications]);
+
+  // Group prefixes derived from the *full* list so chip counts don't
+  // collapse when a filter is active. Each prefix shows its own count.
+  const groups = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const n of sorted) {
+      const g = sessionGroup(n);
+      counts.set(g, (counts.get(g) || 0) + 1);
+    }
+    // Stable order: by count DESC, ties alphabetically.
+    return Array.from(counts.entries()).sort(
+      (a, b) => b[1] - a[1] || a[0].localeCompare(b[0])
+    );
+  }, [sorted]);
+
+  const items = useMemo(() => {
+    let list = sorted;
+    if (groupFilter !== ALL_GROUPS) list = list.filter((n) => sessionGroup(n) === groupFilter);
+    if (filter === 'unread') list = list.filter((n) => !n.read);
+    else if (filter === 'read') list = list.filter((n) => n.read);
     return list;
-  }, [notifications, filter]);
+  }, [sorted, filter, groupFilter]);
 
   const open = openId ? items.find((n) => n.id === openId) ?? null : null;
-  const unreadCount = (notifications ?? []).filter((n) => !n.read).length;
-  const readCount = (notifications ?? []).filter((n) => n.read).length;
+  const unreadCount = sorted.filter((n) => !n.read).length;
+  const readCount = sorted.filter((n) => n.read).length;
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['cb-notifications'] });
@@ -117,7 +164,7 @@ export default function InboxPage() {
       </div>
 
       <div className="border border-border rounded-lg bg-card overflow-hidden flex flex-col flex-1 min-h-[480px]">
-        {/* Toolbar */}
+        {/* Toolbar — read-state filters + bulk actions */}
         <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border bg-muted/30 flex-wrap">
           <div className="flex items-center gap-1">
             {(['all', 'unread', 'read'] as const).map((f) => (
@@ -141,11 +188,23 @@ export default function InboxPage() {
               </button>
             ))}
             <span className="text-xs text-muted-foreground ml-2">
-              {items.length} message{items.length === 1 ? '' : 's'}
+              {items.length} message{items.length === 1 ? '' : 's'} · newest first
             </span>
           </div>
 
           <div className="flex items-center gap-1">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                qc.invalidateQueries({ queryKey: ['cb-notifications'] });
+                qc.invalidateQueries({ queryKey: ['cb-notif-count'] });
+                toast.success('Inbox refreshed');
+              }}
+              title="Re-fetch from the cb daemon"
+            >
+              <RefreshCw size={13} className="mr-1" /> Refresh
+            </Button>
             <Button
               size="sm"
               variant="ghost"
@@ -204,6 +263,42 @@ export default function InboxPage() {
             </Button>
           </div>
         </div>
+
+        {/* Session-prefix chips — same grouping as the /sessions tmux list */}
+        {groups.length > 0 && (
+          <div className="flex items-center gap-1 px-3 py-2 border-b border-border bg-muted/15 flex-wrap">
+            <Terminal size={12} className="text-muted-foreground mr-1 shrink-0" />
+            <button
+              onClick={() => setGroupFilter(ALL_GROUPS)}
+              className={clsx(
+                'px-2 py-0.5 text-xs rounded font-mono transition-colors',
+                groupFilter === ALL_GROUPS
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:bg-accent'
+              )}
+              title="All sessions"
+            >
+              all
+              <span className="ml-1 text-[10px]">({sorted.length})</span>
+            </button>
+            {groups.map(([g, n]) => (
+              <button
+                key={g}
+                onClick={() => setGroupFilter(g)}
+                className={clsx(
+                  'px-2 py-0.5 text-xs rounded font-mono transition-colors max-w-[20ch] truncate',
+                  groupFilter === g
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:bg-accent'
+                )}
+                title={`${g} · ${n} message${n === 1 ? '' : 's'}`}
+              >
+                {g}
+                <span className="ml-1 text-[10px]">({n})</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Body */}
         {isLoading ? (

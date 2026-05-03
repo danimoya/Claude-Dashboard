@@ -14,14 +14,13 @@ import { userService } from '../services/userService';
 import { twofaService } from '../services/twofaService';
 import Button from '../components/Button';
 import Input from '../components/Input';
-import { User, Key, Palette, Eye, EyeOff, ShieldCheck, ShieldAlert, Loader2, BarChart3 } from 'lucide-react';
+import { User, Palette, ShieldCheck, ShieldAlert, Loader2, BarChart3 } from 'lucide-react';
 import { toast } from '../stores/toastStore';
 
-type TabId = 'profile' | 'api-keys' | 'preferences' | 'security' | 'telemetry';
+type TabId = 'profile' | 'preferences' | 'security' | 'telemetry';
 
 const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: 'profile', label: 'Profile', icon: <User size={16} /> },
-  { id: 'api-keys', label: 'API Keys', icon: <Key size={16} /> },
   { id: 'preferences', label: 'Preferences', icon: <Palette size={16} /> },
   { id: 'security', label: 'Security', icon: <ShieldCheck size={16} /> },
   { id: 'telemetry', label: 'Telemetry', icon: <BarChart3 size={16} /> },
@@ -113,7 +112,6 @@ export default function SettingsPage() {
       </div>
 
       {activeTab === 'profile' && <ProfileTab />}
-      {activeTab === 'api-keys' && <ApiKeysTab />}
       {activeTab === 'preferences' && <PreferencesTab />}
       {activeTab === 'security' && (
         <SecurityTab
@@ -278,65 +276,6 @@ function ProfileTab() {
 }
 
 // ── API Keys (now requires 2FA on the backend) ─────────────────
-
-function ApiKeysTab() {
-  const [keys, setKeys] = useState({ anthropic: '', openai: '', speechmatics: '' });
-  const [showKeys, setShowKeys] = useState({ anthropic: false, openai: false, speechmatics: false });
-
-  const mutation = useMutation({
-    mutationFn: () => {
-      const toSend: Record<string, string> = {};
-      if (keys.anthropic) toSend.anthropic = keys.anthropic;
-      if (keys.openai) toSend.openai = keys.openai;
-      if (keys.speechmatics) toSend.speechmatics = keys.speechmatics;
-      return userService.updateApiKeys(toSend);
-    },
-    onSuccess: () => {
-      setKeys({ anthropic: '', openai: '', speechmatics: '' });
-      toast.success('API keys saved');
-    },
-    onError: (error: any) => toast.error(error?.response?.data?.error || 'Failed to save API keys'),
-  });
-
-  const renderKeyInput = (label: string, key: keyof typeof keys, placeholder: string) => (
-    <div>
-      <label className="block text-sm font-medium mb-1">{label}</label>
-      <div className="relative">
-        <input
-          type={showKeys[key] ? 'text' : 'password'}
-          value={keys[key]}
-          onChange={(e) => setKeys({ ...keys, [key]: e.target.value })}
-          placeholder={placeholder}
-          className="w-full px-3 py-2 pr-10 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-        />
-        <button
-          type="button"
-          onClick={() => setShowKeys({ ...showKeys, [key]: !showKeys[key] })}
-          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-        >
-          {showKeys[key] ? <EyeOff size={16} /> : <Eye size={16} />}
-        </button>
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="bg-card rounded-lg border border-border p-6">
-      <h3 className="text-lg font-semibold mb-2">API Keys</h3>
-      <p className="text-sm text-muted-foreground mb-6">
-        Keys are encrypted and stored securely. Leave blank to keep existing keys.
-      </p>
-      <div className="space-y-4 max-w-md">
-        {renderKeyInput('Anthropic API Key', 'anthropic', 'sk-ant-...')}
-        {renderKeyInput('OpenAI API Key', 'openai', 'sk-...')}
-        {renderKeyInput('Speechmatics API Key', 'speechmatics', 'Enter key...')}
-        <Button onClick={() => mutation.mutate()} isLoading={mutation.isPending}>
-          Save API Keys
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 // ── Preferences ─────────────────────────────────────────────────
 
