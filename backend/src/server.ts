@@ -27,9 +27,7 @@ import { CLISessionService } from './services/cli-session.service.js';
 
 // Import routes
 import authRoutes from './routes/auth.routes.js';
-import projectRoutes from './routes/project.routes.js';
 import cliRoutes from './routes/cli.routes.js';
-import fileRoutes from './routes/file.routes.js';
 import userRoutes from './routes/user.routes.js';
 import claudeBRoutes from './routes/claudeB.routes.js';
 import tmuxRoutes from './routes/tmux.routes.js';
@@ -95,10 +93,8 @@ app.get('/health', (_req: Request, res: Response) => {
 // API routes
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/auth/2fa', twofaRoutes);
-app.use('/api/v1/projects', projectRoutes);
 app.use('/api/v1/cli', cliRoutes);
 app.use('/api/v1/tmux', tmuxRoutes);
-app.use('/api/v1/files', fileRoutes);
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/cb', claudeBRoutes);
 

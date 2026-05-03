@@ -4,7 +4,6 @@ import ErrorBoundary from './components/ErrorBoundary';
 import AppLayout from './components/layout/AppLayout';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
-import ProjectWorkspacePage from './pages/ProjectWorkspacePage';
 import SettingsPage from './pages/SettingsPage';
 import CLIPage from './pages/CLIPage';
 import ClaudeBPage from './pages/ClaudeBPage';
@@ -32,14 +31,6 @@ function App() {
           <Route path="/register" element={<GuestRoute><RegisterPage /></GuestRoute>} />
 
           {/* Protected routes with app shell */}
-          <Route
-            path="/projects/:id"
-            element={
-              <ProtectedRoute>
-                <ProjectWorkspacePage />
-              </ProtectedRoute>
-            }
-          />
           <Route
             path="/sessions/:projectId?"
             element={
@@ -83,7 +74,6 @@ function App() {
 
           {/* Back-compat redirects from the previous URL scheme */}
           <Route path="/dashboard" element={<Navigate to="/sessions" replace />} />
-          <Route path="/projects" element={<Navigate to="/sessions" replace />} />
           <Route path="/cli" element={<Navigate to="/sessions" replace />} />
           <Route path="/tasks" element={<Navigate to="/claude-b" replace />} />
 
