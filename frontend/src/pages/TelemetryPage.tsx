@@ -10,14 +10,18 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { useState, type ReactNode } from 'react';
 import {
   ArrowLeft,
   BarChart3,
+  Check,
   CheckCircle2,
+  Copy,
   ExternalLink,
   RefreshCw,
   Send,
   ShieldCheck,
+  WifiOff,
 } from 'lucide-react';
 import { telemetryService, fetchPublicStats } from '../services/telemetryService';
 import { useAuthStore } from '../stores/authStore';
@@ -232,6 +236,11 @@ export default function TelemetryPage() {
           </section>
         )}
 
+        {/* Offline / out-of-band submission */}
+        {isAuthed && payload.data && (
+          <OfflineSubmission payload={payload.data} onRefresh={() => payload.refetch()} />
+        )}
+
         {/* Receiver retention */}
         <section className="space-y-3">
           <h2 className="text-lg font-semibold">Receiver retention policy</h2>
@@ -324,4 +333,175 @@ function Toggle({
       </div>
     </label>
   );
+}
+
+// ── Offline submission ──────────────────────────────────────────
+//
+// For air-gapped / restricted-egress hosts: render the exact payload
+// in several ready-to-paste shapes (curl, wget, HTTPie, PowerShell,
+// plain JSON). The user copies one, runs it from a machine with
+// internet access, and the receiver dedupes it like any other ping
+// (the receiver doesn't care which IP submits — see Bug-free retention
+// design: hash is over `salt || ip || installation_id` and salt rotates
+// weekly, so a one-off submission from a different IP still increments
+// the unique-installs count exactly once per week).
+
+const RECEIVER_PING_URL =
+  ((import.meta.env.VITE_TELEMETRY_RECEIVER_URL as string | undefined) ||
+    'https://telemetry.danimoya.com') + '/v1/ping';
+
+interface OfflinePayload {
+  installation_id: string;
+  dashboard_version: string;
+  heliosdb_version: string | null;
+  timestamp: string;
+}
+
+type OfflineFormat = 'curl' | 'wget' | 'httpie' | 'powershell' | 'json';
+
+function buildCommand(fmt: OfflineFormat, p: OfflinePayload): string {
+  // The payload's `timestamp` field is regenerated at "render time" (the
+  // /payload endpoint stamps now()), so users get a fresh value each
+  // time they hit "Refresh timestamp". The body is a single-line JSON
+  // string; we let the format-specific renderer decide how to pass it.
+  const json = JSON.stringify(p);
+  switch (fmt) {
+    case 'curl':
+      // --silent -S: hide progress, still show errors.
+      // --max-time: cap at 10s so a hung receiver doesn't lock the script.
+      // --fail-with-body: non-zero exit on 4xx/5xx but still print response.
+      return [
+        `curl --silent --show-error --fail-with-body --max-time 10 \\`,
+        `  -X POST '${RECEIVER_PING_URL}' \\`,
+        `  -H 'Content-Type: application/json' \\`,
+        `  -d '${escapeForSingleQuotedShell(json)}'`,
+      ].join('\n');
+    case 'wget':
+      return [
+        `wget --quiet --timeout=10 -O- \\`,
+        `  --header='Content-Type: application/json' \\`,
+        `  --post-data='${escapeForSingleQuotedShell(json)}' \\`,
+        `  '${RECEIVER_PING_URL}'`,
+      ].join('\n');
+    case 'httpie':
+      // HTTPie can take JSON fields as kv pairs; we use the explicit
+      // form to avoid nullable surprises with heliosdb_version.
+      return [
+        `http POST '${RECEIVER_PING_URL}' \\`,
+        `  Content-Type:application/json \\`,
+        `  installation_id='${p.installation_id}' \\`,
+        `  dashboard_version='${p.dashboard_version}' \\`,
+        `  heliosdb_version:='${p.heliosdb_version === null ? 'null' : `"${p.heliosdb_version}"`}' \\`,
+        `  timestamp='${p.timestamp}'`,
+      ].join('\n');
+    case 'powershell':
+      return [
+        `$body = @'`,
+        json,
+        `'@`,
+        `Invoke-RestMethod -Method POST -Uri '${RECEIVER_PING_URL}' \``,
+        `  -ContentType 'application/json' \``,
+        `  -Body $body`,
+      ].join('\n');
+    case 'json':
+      return JSON.stringify(p, null, 2);
+  }
+}
+
+function escapeForSingleQuotedShell(s: string): string {
+  // Inside single-quoted bash, only `'` itself can't appear literally.
+  // Closing the quote, inserting an escaped quote, and reopening is the
+  // standard trick. Our payload is JSON so this fires only for stray
+  // single quotes — none today, but defensive.
+  return s.replace(/'/g, `'\\''`);
+}
+
+const FORMATS: { id: OfflineFormat; label: string; lang: string }[] = [
+  { id: 'curl', label: 'curl', lang: 'bash' },
+  { id: 'wget', label: 'wget', lang: 'bash' },
+  { id: 'httpie', label: 'HTTPie', lang: 'bash' },
+  { id: 'powershell', label: 'PowerShell', lang: 'powershell' },
+  { id: 'json', label: 'Plain JSON', lang: 'json' },
+];
+
+function OfflineSubmission({
+  payload,
+  onRefresh,
+}: {
+  payload: OfflinePayload;
+  onRefresh: () => void;
+}) {
+  const [fmt, setFmt] = useState<OfflineFormat>('curl');
+  const [copied, setCopied] = useState(false);
+  const command = buildCommand(fmt, payload);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(command);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      /* ignore — fallback select-all visible already */
+    }
+  };
+
+  return (
+    <section className="bg-card border border-border rounded-lg p-6 space-y-4">
+      <div>
+        <h2 className="text-lg font-semibold flex items-center gap-2">
+          <WifiOff size={18} className="text-primary" />
+          Offline / restricted-egress submission
+        </h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          On an air-gapped or egress-restricted host the dashboard can't reach the
+          telemetry endpoint directly. Copy the command below, run it from any machine
+          with internet access. The receiver dedupes by{' '}
+          <code className="text-xs">SHA-256(salt || ip || installation_id)</code> per
+          ISO week — a one-off submission from a different IP still counts your install
+          exactly once.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1 border-b border-border pb-3">
+        {FORMATS.map((f) => (
+          <button
+            key={f.id}
+            onClick={() => setFmt(f.id)}
+            className={
+              'px-3 py-1.5 text-xs font-medium rounded-md transition-colors ' +
+              (fmt === f.id
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:bg-accent hover:text-foreground')
+            }
+          >
+            {f.label}
+          </button>
+        ))}
+        <span className="ml-auto flex items-center gap-1.5">
+          <Button size="sm" variant="ghost" onClick={onRefresh} title="Regenerate with current timestamp">
+            <RefreshCw size={13} className="mr-1" /> Refresh timestamp
+          </Button>
+          <Button size="sm" onClick={copy}>
+            {copied ? <Check size={13} className="mr-1" /> : <Copy size={13} className="mr-1" />}
+            {copied ? 'Copied' : 'Copy'}
+          </Button>
+        </span>
+      </div>
+
+      <pre className="bg-zinc-950 dark:bg-zinc-900 text-zinc-100 rounded-md p-4 text-xs leading-relaxed overflow-x-auto border border-zinc-800 whitespace-pre">
+        {command}
+      </pre>
+
+      <Footnote>
+        Timestamp shown is <code>{payload.timestamp}</code> — UTC at the moment this
+        section rendered. Hit <strong>Refresh timestamp</strong> to mint a new one
+        before copying. Receiver accepts any RFC&nbsp;3339 timestamp so the value isn't
+        load-bearing for dedupe; it's there for diagnostics.
+      </Footnote>
+    </section>
+  );
+}
+
+function Footnote({ children }: { children: ReactNode }) {
+  return <p className="text-xs text-muted-foreground leading-relaxed">{children}</p>;
 }
