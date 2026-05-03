@@ -14,6 +14,7 @@ import { Task } from '../entities/Task.entity.js';
 import { CLISession } from '../entities/CLISession.entity.js';
 import { Activity } from '../entities/Activity.entity.js';
 import { ScheduledTask } from '../entities/ScheduledTask.entity.js';
+import { Install } from '../entities/Install.entity.js';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -31,7 +32,7 @@ export const AppDataSource = new DataSource({
   logger: 'advanced-console',
 
   // Entities
-  entities: [User, Project, Session, Task, CLISession, Activity, ScheduledTask],
+  entities: [User, Project, Session, Task, CLISession, Activity, ScheduledTask, Install],
 
   // Migrations
   migrations: ['src/migrations/**/*.ts'],

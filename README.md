@@ -4,9 +4,16 @@
 
 A self-hosted control panel for AI-assisted development: live tmux pane streaming with hotkeys, a [Claude-B](https://github.com/danimoya/Claude-B) background-agent inbox/transcript view, project workspaces with file browser + Monaco editor, and 2FA-gated settings — backed by a single encrypted [HeliosDB-Nano](https://github.com/Dimensigon/HDB-HeliosDB-Nano) data tier.
 
-## Security note — HTTPS-only
+## Security note — HTTPS-only, opt-in telemetry
 
 This dashboard exposes a shell of your machine to the network: tmux panes, the Claude-B inbox, project files, and (without 2FA, for first login) the API keys you'll later store in `/settings`. **It is designed to run behind TLS only.** The recommended deployment terminates SSL at Nginx Proxy Manager (NPM) with auto-renewing Let's Encrypt certs and forwards plaintext only on a Docker-internal network. Plaintext on the public internet is not a supported configuration.
+
+A first-run setup wizard at `/setup` walks you through the admin user, optionally enrolls 2FA, and asks — explicitly — whether you want to enable two **independent** features that are off by default:
+
+- **Submit weekly install pings** — sends exactly `{installation_id, dashboard_version, heliosdb_version, timestamp}`. No IP, no username, no host metadata. The receiver hashes `(client_ip, installation_id)` with a weekly-rotating salt and only retains the hash, so duplicate installs are deduplicated without anyone holding a re-identifiable address. Full schema and retention live at `/telemetry`.
+- **Check for updates** — pure `GET` against a public JSON feed; the client sends nothing.
+
+Both default to **off**, both can be toggled independently any time from `/telemetry`, and both are documented at `/telemetry` alongside the exact JSON payload that would be sent. Receiver source — including the schema, salt-rotation cron, and audit changelog — at [github.com/danimoya/telemetry](https://github.com/danimoya/telemetry).
 
 If you've just cloned this repo onto a fresh server, see [`docs/install.md`](docs/install.md) — it includes a copy-pasteable bootstrap prompt that an AI agent (Claude Code, Codex) can execute end-to-end: Docker, NPM with auto-SSL, HeliosDB-Nano, and the dashboard itself, in that order.
 
@@ -72,6 +79,8 @@ What works today, what's queued.
 | **Prometheus metrics + Winston** | ✅ | `/metrics` endpoint, structured logs. |
 | **Docker compose deploy** | ✅ | One image, host tmux socket bind-mounted. |
 | **HTTPS-only via NPM + Let's Encrypt** | ✅ | Public traffic terminates at Nginx Proxy Manager; the app container has no public port. See [`docs/install.md`](docs/install.md). |
+| **First-run setup wizard** | ✅ | `/setup` — admin user, optional 2FA enrollment hint, two opt-in toggles (telemetry ping + update check) both **off by default**. |
+| **Anonymous opt-in telemetry** | ✅ | `/telemetry` shows the exact 4-field JSON payload, the salted-hash dedupe scheme, and the 90-day retention policy. Receiver source at [github.com/danimoya/telemetry](https://github.com/danimoya/telemetry). |
 
 ### Planned / Nice-to-have
 
@@ -148,6 +157,8 @@ The dashboard's Inbox renders the same `resultFull` markdown that Telegram shows
 
 - [docs/install.md](docs/install.md) — fresh-server bootstrap (Docker + NPM + HeliosDB + this stack), with a paste-into-an-agent prompt
 - [docs/heliosdb-migration.md](docs/heliosdb-migration.md) — single-database deployment with HeliosDB-Nano (encryption at rest, native PG wire, retires Redis)
+- [docs/heliosdb-bugs.md](docs/heliosdb-bugs.md) — current upstream gaps blocking the HeliosDB-Nano default; the swap is gated on these
+- `/telemetry` (live page in the running dashboard) — exact JSON payload, retention policy, two independent toggles
 - [docs/architecture.md](docs/architecture.md) — system architecture, data flow, entities
 - [docs/deployment.md](docs/deployment.md) — day-2 operations
 - [docs/development-setup.md](docs/development-setup.md) — local dev quick-start

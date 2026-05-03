@@ -1,4 +1,10 @@
 services:
+  # ── Database tier ────────────────────────────────────────────────
+  # Default: postgres:15-alpine. The HeliosDB-Nano migration is gated on
+  # upstream fixes for the bugs listed in docs/heliosdb-bugs.md
+  # (information_schema missing, scram/password auth broken,
+  #  CREATE DATABASE not supported). Compose keeps both definitions; flip
+  # the app's DB_HOST to switch.
   postgres:
     image: postgres:15-alpine
     container_name: claude-dashboard-db
@@ -15,6 +21,28 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - internal
+
+  # HeliosDB-Nano (preview, gated on bug fixes). Kept here so once the
+  # information_schema gap is closed, switching is one DB_HOST change.
+  heliosdb:
+    image: heliosdb-nano-v2:latest
+    container_name: claude-dashboard-heliosdb
+    profiles: ["heliosdb"]   # only starts when explicitly enabled
+    restart: unless-stopped
+    command:
+      - start
+      - --data-dir=/data
+      - --listen=0.0.0.0
+      - --port=5432
+      - --auth=trust
+    environment:
+      HELIOSDB_DATA_DIR: /data
+      HELIOSDB_LOG_LEVEL: info
+      RUST_BACKTRACE: "1"
+    volumes:
+      - heliosdb_data:/data
     networks:
       - internal
 
@@ -58,10 +86,7 @@ services:
       TMUX_HOST_UID: "1001"
     volumes:
       - ${PROJECTS_PATH:-./projects}:/app/projects
-      # Mount the host tmux socket dir so the container can attach to host
-      # sessions without needing its own tmux server.
       - /tmp/tmux-1001:/tmp/tmux-1001
-      # Mount the project root so admin scripts are picked up live.
       - ./scripts:/app/scripts:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -75,8 +100,10 @@ services:
       - management-network
 
 volumes:
-  postgres_data:
+  heliosdb_data:
   redis_data:
+  # Legacy — kept until the old Postgres container is decommissioned.
+  postgres_data:
 
 networks:
   internal:

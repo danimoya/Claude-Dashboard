@@ -14,16 +14,17 @@ import { userService } from '../services/userService';
 import { twofaService } from '../services/twofaService';
 import Button from '../components/Button';
 import Input from '../components/Input';
-import { User, Key, Palette, Eye, EyeOff, ShieldCheck, ShieldAlert, Loader2 } from 'lucide-react';
+import { User, Key, Palette, Eye, EyeOff, ShieldCheck, ShieldAlert, Loader2, BarChart3 } from 'lucide-react';
 import { toast } from '../stores/toastStore';
 
-type TabId = 'profile' | 'api-keys' | 'preferences' | 'security';
+type TabId = 'profile' | 'api-keys' | 'preferences' | 'security' | 'telemetry';
 
 const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: 'profile', label: 'Profile', icon: <User size={16} /> },
   { id: 'api-keys', label: 'API Keys', icon: <Key size={16} /> },
   { id: 'preferences', label: 'Preferences', icon: <Palette size={16} /> },
   { id: 'security', label: 'Security', icon: <ShieldCheck size={16} /> },
+  { id: 'telemetry', label: 'Telemetry', icon: <BarChart3 size={16} /> },
 ];
 
 const STEP_UP_KEY = '2faToken';
@@ -123,6 +124,31 @@ export default function SettingsPage() {
           }}
         />
       )}
+      {activeTab === 'telemetry' && <TelemetryRedirect />}
+    </div>
+  );
+}
+
+function TelemetryRedirect() {
+  return (
+    <div className="bg-card rounded-lg border border-border p-6 space-y-3">
+      <div className="flex items-center gap-2">
+        <BarChart3 size={18} className="text-primary" />
+        <h3 className="text-lg font-semibold">Telemetry &amp; updates</h3>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Both the telemetry-ping toggle and the update-check toggle live on the dedicated{' '}
+        <a className="text-primary underline" href="/telemetry">/telemetry</a> page,
+        alongside the exact JSON payload that would be sent and the receiver's retention
+        policy. We keep them there (rather than buried in a settings tab) so the controls
+        and the disclosure stay visible together.
+      </p>
+      <a
+        href="/telemetry"
+        className="inline-flex items-center gap-1.5 text-sm text-primary underline"
+      >
+        Open /telemetry →
+      </a>
     </div>
   );
 }
