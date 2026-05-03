@@ -85,3 +85,25 @@ export const setupService = {
     return r.data.data;
   },
 };
+
+// Public aggregate stats from the central receiver. No auth, no payload.
+export interface PublicTelemetryStats {
+  week: string;
+  installs: number;
+  byVersion: { version: string; installs: number }[];
+}
+
+const RECEIVER_URL =
+  (import.meta.env.VITE_TELEMETRY_RECEIVER_URL as string | undefined) ||
+  'https://telemetry.danimoya.com';
+
+export async function fetchPublicStats(): Promise<PublicTelemetryStats | null> {
+  try {
+    const r = await fetch(`${RECEIVER_URL}/v1/stats`);
+    if (!r.ok) return null;
+    return await r.json();
+  } catch {
+    return null;
+  }
+}
+

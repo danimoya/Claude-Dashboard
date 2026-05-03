@@ -86,6 +86,71 @@ psql -h heliosdb -d totally_made_up_db_name -c "SELECT current_database();"
 ```
 **Expected**: connecting to a non-existent database should return `FATAL: database "X" does not exist`, mirroring PostgreSQL behaviour. Silently routing every connection to the same single `heliosdb` DB makes multi-tenant deployments unsafe.
 
+## Bug 7 — Multi-statement queries rejected
+
+**Severity**: low (purely client-side splitting needed)
+**Reproducer**:
+```js
+await pool.query(`CREATE TABLE foo (a INT); CREATE INDEX foo_a ON foo (a);`);
+```
+**Observed**: `Multiple statements not supported in single query`.
+**Expected**: Postgres' simple-query protocol allows semicolon-separated
+statements in a single message; our schema bootstrap relied on it. Easy
+client-side fix (split into separate `pool.query` calls), but it means
+you cannot paste a multi-statement DDL block.
+
+## Bug 8 — Parameterised SELECT crashes node-pg
+
+**Severity**: blocker for any client that uses prepared statements
+**Reproducer**:
+```js
+await pool.query("SELECT COUNT(*) FROM pings WHERE week_bucket = $1", ["2026-18"]);
+// → TypeError: Cannot read properties of undefined (reading 'name')
+//   at /app/node_modules/pg-pool/index.js:45:11
+```
+**Observed**: any SELECT that passes parameters via the extended-query
+protocol returns a malformed RowDescription (missing `name` field on a
+column descriptor), crashing node-pg's parser. INSERT with parameters
+works because no rows are returned.
+**Expected**: parameterised SELECT is the default path for every PG
+client (node-pg, psycopg, JDBC, asyncpg). This affects far more than
+TypeORM — any prepared-statement code-path is broken.
+
+## Bug 9 — `COUNT(DISTINCT col) WHERE x = $1` returns 0
+
+**Severity**: probably the same root as Bug #8 (extended protocol)
+**Reproducer**: same query as Bug #8 but with literal `WHERE … = '2026-18'`
+returns the correct count `1`; with `$1` placeholder it returns `0`. Not a
+parser crash this time — silent miscount.
+
+## Bug 10 — Column alias dropped on aggregate expressions
+
+**Severity**: medium (silently breaks any code that reads result columns by alias)
+**Reproducer**:
+```js
+const r = await pool.query("SELECT COUNT(*) AS xyzzy FROM pings");
+// r.fields[0].name === 'count', not 'xyzzy'
+// r.rows[0]   === { count: '1' }, not { xyzzy: '1' }
+```
+**Expected**: `AS xyzzy` should rename the column in both the
+RowDescription metadata and the JSON shape. PostgreSQL does this; Nano
+silently ignores the alias on aggregates.
+
+A constant alias works (`SELECT 42 AS the_answer` → returns
+`{the_answer: '42'}`); only aggregate-result columns drop the rename.
+
+## Bug 11 — `SELECT col FROM t` returns the entire row
+
+**Severity**: high (data-shape contract is violated)
+**Reproducer**:
+```js
+const r = await pool.query("SELECT dashboard_version FROM pings");
+// returns { week_bucket, hash, dashboard_version, heliosdb_version, received_at } per row
+```
+**Expected**: column projection should return *only* the listed columns.
+Returning the whole row triples-or-more the wire payload and breaks any
+code that doesn't pre-allowlist its expected fields.
+
 ## Bug 6 — `pg_dump` restore stalls
 
 **Severity**: medium (data migration path unavailable)
@@ -106,6 +171,18 @@ psql -h heliosdb -U heliosdb -d heliosdb -f dump.sql
 | 4 | `information_schema.tables` | **blocker** | **yes** |
 | 5 | Database name routing | low | no |
 | 6 | `pg_dump` restore | medium | yes (no data migration path) |
+| 7 | Multi-statement queries rejected | low | no |
+| 8 | Parameterised SELECT crashes node-pg | **blocker** | yes (every prepared-statement client) |
+| 9 | `COUNT(DISTINCT) WHERE = $1` returns 0 | high | yes (silent miscount) |
+| 10 | Column alias dropped on aggregates | medium | breaks alias-by-key result reading |
+| 11 | `SELECT col FROM t` returns all columns | high | data-shape contract violated |
+
+Bugs 7–11 were uncovered while building the (much simpler) telemetry
+receiver against HeliosDB-Nano. The receiver lives at
+[`~/telemetry/`](../../telemetry) and runs in production today —
+documenting that even a small, hand-rolled SQL workload trips multiple
+protocol-level issues, and that the dashboard's TypeORM bootstrap
+(Bug #4) is the tip of the iceberg.
 
 ## Path forward
 
