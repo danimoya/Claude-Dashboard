@@ -19,7 +19,7 @@ import {
   Send,
   ShieldCheck,
 } from 'lucide-react';
-import { telemetryService } from '../services/telemetryService';
+import { telemetryService, fetchPublicStats } from '../services/telemetryService';
 import { useAuthStore } from '../stores/authStore';
 import Button from '../components/Button';
 import { toast } from '../stores/toastStore';
@@ -38,6 +38,13 @@ export default function TelemetryPage() {
     queryKey: ['telemetry-payload'],
     queryFn: telemetryService.payload,
     enabled: isAuthed,
+  });
+  // Public aggregate from the central receiver — no auth, no per-install
+  // data, just the headline number visible to anyone.
+  const publicStats = useQuery({
+    queryKey: ['telemetry-public-stats'],
+    queryFn: fetchPublicStats,
+    refetchInterval: 60_000,
   });
 
   const setPrefs = useMutation({
@@ -90,6 +97,50 @@ export default function TelemetryPage() {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-8 space-y-8">
+        {/* Public aggregate — what every install sees, no auth */}
+        <section className="bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/30 rounded-lg p-6">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="min-w-0">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
+                Reported install pings · this week
+              </p>
+              <p className="text-4xl font-bold tracking-tight mt-1">
+                {publicStats.data
+                  ? publicStats.data.installs.toLocaleString()
+                  : publicStats.isLoading
+                  ? '…'
+                  : '—'}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Salted-hash dedupe, ISO week{' '}
+                <code>{publicStats.data?.week || '…'}</code>. Counts unique
+                <code className="mx-1">SHA-256(salt || ip || installation_id)</code>
+                values. Anyone can hit{' '}
+                <a className="text-primary underline" href="https://telemetry.danimoya.com/v1/stats">
+                  /v1/stats
+                </a>
+                .
+              </p>
+            </div>
+            {publicStats.data?.byVersion && publicStats.data.byVersion.length > 0 && (
+              <div className="text-right">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
+                  By version
+                </p>
+                <ul className="text-sm mt-1 font-mono">
+                  {publicStats.data.byVersion.slice(0, 5).map((v) => (
+                    <li key={v.version}>
+                      <span className="text-primary">{v.version}</span>
+                      <span className="text-muted-foreground mx-1">·</span>
+                      <span>{v.installs}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </section>
+
         {/* TL;DR */}
         <section className="bg-card border border-border rounded-lg p-6 space-y-2">
           <div className="flex items-center gap-2 text-primary text-sm font-medium">
