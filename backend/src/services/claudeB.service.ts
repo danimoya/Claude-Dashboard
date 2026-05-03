@@ -99,22 +99,43 @@ export class ClaudeBService {
   private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const token = await this.getToken();
 
+    // Only set Content-Type when there is actually a body. Fastify rejects
+    // bodyless requests that declare `application/json` with
+    // FST_ERR_CTP_EMPTY_JSON_BODY → 400, which broke every POST/DELETE
+    // without payload (kill, mark-read, delete notification…).
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${token}`,
+      ...(options.headers as Record<string, string> | undefined),
+    };
+    if (options.body !== undefined && headers['Content-Type'] === undefined) {
+      headers['Content-Type'] = 'application/json';
+    }
+
     const res = await fetch(`${CB_API_BASE}${path}`, {
       ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-        ...options.headers,
-      },
+      headers,
     });
 
     if (!res.ok) {
       const body = await res.text().catch(() => '');
       logger.error(`Claude-B API error: ${res.status} ${path}`, { body });
-      throw AppError.internal(`Claude-B API error: ${res.status}`);
+      // Surface the upstream error message so the toast on the frontend
+      // is useful instead of "Claude-B API error: 400".
+      let upstream = '';
+      try {
+        const parsed = JSON.parse(body);
+        upstream = parsed?.message || parsed?.error || '';
+      } catch {
+        upstream = body.slice(0, 200);
+      }
+      const detail = upstream ? `: ${upstream}` : '';
+      throw AppError.internal(`Claude-B API error ${res.status}${detail}`);
     }
 
-    return res.json() as Promise<T>;
+    // Empty bodies (204 / cb's success-only responses) — return null cast.
+    const text = await res.text();
+    if (!text) return null as T;
+    return JSON.parse(text) as T;
   }
 
   // ── Sessions ──────────────────────────────────────────────
@@ -178,36 +199,42 @@ export class ClaudeBService {
 
   /**
    * Fan out DELETE for each read notification. The cb daemon doesn't expose
-   * a bulk delete endpoint; failures are logged but don't abort the batch.
+   * a bulk-delete endpoint, so we fire all DELETEs concurrently with a
+   * bounded pool and aggregate the result. Failures are logged but don't
+   * abort the batch.
    */
   async deleteReadNotifications(): Promise<number> {
-    const all = (await this.getNotifications()) as any;
-    const list: any[] = Array.isArray(all) ? all : all?.notifications || [];
-    let deleted = 0;
-    for (const n of list) {
-      if (!n?.read) continue;
-      try {
-        await this.deleteNotification(n.id);
-        deleted++;
-      } catch (err) {
-        logger.warn(`Failed to delete read notification ${n.id}: ${(err as Error)?.message}`);
-      }
-    }
-    return deleted;
+    const list = await this.fetchNotificationsList();
+    return this.deleteIdsConcurrently(list.filter((n) => n?.read).map((n) => n.id));
   }
 
   async deleteAllNotifications(): Promise<number> {
-    const all = (await this.getNotifications()) as any;
-    const list: any[] = Array.isArray(all) ? all : all?.notifications || [];
+    const list = await this.fetchNotificationsList();
+    return this.deleteIdsConcurrently(list.map((n) => n.id));
+  }
+
+  private async fetchNotificationsList(): Promise<any[]> {
+    const resp = (await this.getNotifications()) as any;
+    return Array.isArray(resp) ? resp : resp?.notifications || [];
+  }
+
+  private async deleteIdsConcurrently(ids: string[], concurrency = 16): Promise<number> {
+    if (ids.length === 0) return 0;
     let deleted = 0;
-    for (const n of list) {
-      try {
-        await this.deleteNotification(n.id);
-        deleted++;
-      } catch (err) {
-        logger.warn(`Failed to delete notification ${n.id}: ${(err as Error)?.message}`);
+    let cursor = 0;
+    const worker = async () => {
+      while (cursor < ids.length) {
+        const i = cursor++;
+        const id = ids[i];
+        try {
+          await this.deleteNotification(id);
+          deleted++;
+        } catch (err) {
+          logger.warn(`Failed to delete notification ${id}: ${(err as Error)?.message}`);
+        }
       }
-    }
+    };
+    await Promise.all(Array.from({ length: Math.min(concurrency, ids.length) }, worker));
     return deleted;
   }
 

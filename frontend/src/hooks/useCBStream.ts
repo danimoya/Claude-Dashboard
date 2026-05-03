@@ -54,9 +54,34 @@ export function useCBStream(sessionId: string | null): UseCBStreamResult {
       attemptsRef.current = 0;
     };
 
+    // The cb daemon sends JSON envelopes:
+    //   { type: 'connected', sessionId, status }
+    //   { type: 'output',    data: { content: string, buffered?: boolean } }
+    //   { type: 'prompt.completed', promptId, exitCode }
+    //   { type: 'status',    status: '...' }
+    //   { type: 'error',     error: string }
+    // Pluck `data.content` from `output` events and accumulate; render
+    // anything else inline as a small annotation so the user can see the
+    // stream is alive.
     ws.onmessage = (event) => {
-      const data = typeof event.data === 'string' ? event.data : '';
-      setOutput((prev) => prev + data);
+      const raw = typeof event.data === 'string' ? event.data : '';
+      if (!raw) return;
+      try {
+        const msg = JSON.parse(raw);
+        if (msg?.type === 'output' && typeof msg?.data?.content === 'string') {
+          setOutput((prev) => prev + msg.data.content);
+        } else if (msg?.type === 'prompt.completed') {
+          setOutput((prev) => prev + `\n[prompt completed · exit ${msg.exitCode ?? 0}]\n`);
+        } else if (msg?.type === 'connected') {
+          setOutput((prev) => prev + `[stream connected · status: ${msg.status ?? '?'}]\n`);
+        } else if (msg?.type === 'error') {
+          setOutput((prev) => prev + `[stream error: ${msg.error ?? 'unknown'}]\n`);
+        }
+        // status / unknown — ignore
+      } catch {
+        // Not JSON — fall back to raw append (defensive).
+        setOutput((prev) => prev + raw);
+      }
     };
 
     ws.onclose = () => {
