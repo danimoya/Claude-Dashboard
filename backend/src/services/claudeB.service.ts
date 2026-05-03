@@ -198,44 +198,25 @@ export class ClaudeBService {
   }
 
   /**
-   * Fan out DELETE for each read notification. The cb daemon doesn't expose
-   * a bulk-delete endpoint, so we fire all DELETEs concurrently with a
-   * bounded pool and aggregate the result. Failures are logged but don't
-   * abort the batch.
+   * Bulk delete via cb's atomic single-rewrite endpoints. The previous
+   * implementation fanned out N independent DELETEs which raced cb's
+   * read-modify-write cycle and corrupted notifications.jsonl mid-write.
+   * The cb daemon now exposes /delete-all and /delete-read, both wrapped
+   * in a per-inbox mutex with an atomic rename — one round-trip, zero
+   * race surface, regardless of how many messages are in the inbox.
    */
   async deleteReadNotifications(): Promise<number> {
-    const list = await this.fetchNotificationsList();
-    return this.deleteIdsConcurrently(list.filter((n) => n?.read).map((n) => n.id));
+    const r = (await this.request('/api/notifications/delete-read', {
+      method: 'POST',
+    })) as { deleted?: number };
+    return r?.deleted ?? 0;
   }
 
   async deleteAllNotifications(): Promise<number> {
-    const list = await this.fetchNotificationsList();
-    return this.deleteIdsConcurrently(list.map((n) => n.id));
-  }
-
-  private async fetchNotificationsList(): Promise<any[]> {
-    const resp = (await this.getNotifications()) as any;
-    return Array.isArray(resp) ? resp : resp?.notifications || [];
-  }
-
-  private async deleteIdsConcurrently(ids: string[], concurrency = 16): Promise<number> {
-    if (ids.length === 0) return 0;
-    let deleted = 0;
-    let cursor = 0;
-    const worker = async () => {
-      while (cursor < ids.length) {
-        const i = cursor++;
-        const id = ids[i];
-        try {
-          await this.deleteNotification(id);
-          deleted++;
-        } catch (err) {
-          logger.warn(`Failed to delete notification ${id}: ${(err as Error)?.message}`);
-        }
-      }
-    };
-    await Promise.all(Array.from({ length: Math.min(concurrency, ids.length) }, worker));
-    return deleted;
+    const r = (await this.request('/api/notifications/delete-all', {
+      method: 'POST',
+    })) as { deleted?: number };
+    return r?.deleted ?? 0;
   }
 
   // ── Health ────────────────────────────────────────────────
