@@ -10,7 +10,7 @@
 
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ShieldCheck, BarChart3, RefreshCw, Sparkles, ChevronRight, Lock } from 'lucide-react';
 import { setupService } from '../services/telemetryService';
 import { useAuthStore } from '../stores/authStore';
@@ -21,6 +21,7 @@ import { toast } from '../stores/toastStore';
 export default function SetupPage() {
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
+  const queryClient = useQueryClient();
 
   // If setup has already been run, redirect away — no second run allowed.
   const status = useQuery({ queryKey: ['setup-status'], queryFn: setupService.status });
@@ -51,8 +52,11 @@ export default function SetupPage() {
       }),
     onSuccess: (data: any) => {
       setAuth(data.user, data.tokens);
+      // Without this, SetupGate keeps the stale needsSetup:true result for
+      // 60s and bounces the user from /sessions back to /setup.
+      queryClient.setQueryData(['setup-status'], { needsSetup: false });
       toast.success('Welcome — setup complete');
-      navigate('/sessions');
+      navigate('/sessions', { replace: true });
     },
     onError: (err: any) =>
       toast.error(err?.response?.data?.error || 'Setup failed'),

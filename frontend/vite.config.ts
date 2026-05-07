@@ -23,6 +23,10 @@ export default defineConfig({
     proxy: {
       '/api': { target: BACKEND_HTTP, changeOrigin: true },
       '/ws': { target: BACKEND_WS, ws: true },
+      // Socket.IO connects to /socket.io/ at window.location.origin by
+      // default; without this proxy entry, every /tmux, /cli, /cb gateway
+      // reconnects forever in dev or behind a reverse proxy.
+      '/socket.io': { target: BACKEND_HTTP, ws: true, changeOrigin: true },
     },
   },
   resolve: {
