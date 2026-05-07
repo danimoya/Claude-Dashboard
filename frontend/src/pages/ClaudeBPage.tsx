@@ -16,7 +16,10 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  Download,
+  ExternalLink,
   Loader2,
+  Play,
   Plus,
   RefreshCw,
   Send,
@@ -36,14 +39,27 @@ export default function ClaudeBPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showPromptModal, setShowPromptModal] = useState(false);
 
-  const health = useQuery({
-    queryKey: ['cb-health'],
-    queryFn: claudeBService.health,
+  // Lightweight {installed, running} probe. Branches the offline panel into
+  // "not installed" vs "not running" cases. We still call /health below to
+  // get the live session count when running=true, but daemonStatus is the
+  // single source of truth for online/offline.
+  const status = useQuery({
+    queryKey: ['cb-daemon-status'],
+    queryFn: claudeBService.daemonStatus,
     refetchInterval: 30_000,
     retry: 1,
   });
 
-  const daemonOnline = health.data?.status === 'ok';
+  const health = useQuery({
+    queryKey: ['cb-health'],
+    queryFn: claudeBService.health,
+    refetchInterval: 30_000,
+    retry: 0,
+    enabled: status.data?.running === true,
+  });
+
+  const daemonOnline = status.data?.running === true;
+  const cbInstalled = status.data?.installed === true;
 
   return (
     <div className="space-y-6">
@@ -54,14 +70,17 @@ export default function ClaudeBPage() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Daemon &mdash;{' '}
-            {health.isLoading ? (
+            {status.isLoading ? (
               <span className="text-muted-foreground">checking…</span>
             ) : daemonOnline ? (
               <span className="text-green-600 dark:text-green-400">
-                online · {health.data!.sessions} session{health.data!.sessions === 1 ? '' : 's'}
+                online{health.data ? ` · ${health.data.sessions} session${health.data.sessions === 1 ? '' : 's'}` : ''}
+                {status.data?.version ? ` · v${status.data.version}` : ''}
               </span>
+            ) : cbInstalled ? (
+              <span className="text-amber-600 dark:text-amber-400">installed but stopped</span>
             ) : (
-              <span className="text-red-600 dark:text-red-400">offline</span>
+              <span className="text-red-600 dark:text-red-400">not installed</span>
             )}
           </p>
         </div>
@@ -70,8 +89,12 @@ export default function ClaudeBPage() {
         </Button>
       </div>
 
-      {!daemonOnline && !health.isLoading && (
-        <DaemonOfflineBanner error={(health.error as any)?.message} onRetry={() => health.refetch()} />
+      {!daemonOnline && !status.isLoading && (
+        <DaemonOfflinePanel
+          installed={cbInstalled}
+          apiUrl={status.data?.apiUrl}
+          onRetry={() => status.refetch()}
+        />
       )}
 
       <SessionsPanel
@@ -94,33 +117,128 @@ export default function ClaudeBPage() {
   );
 }
 
-// ── Banner ─────────────────────────────────────────────────────
+// ── Daemon offline panel ───────────────────────────────────────
 
-function DaemonOfflineBanner({ error, onRetry }: { error?: string; onRetry: () => void }) {
+const CB_REPO_URL = 'https://github.com/danimoya/Claude-B';
+
+/**
+ * Two-box install/start hint shown on /claude-b when the daemon isn't
+ * answering. The relevant box (start vs install) is highlighted based on
+ * whether `cb` is on PATH; the other stays available so the user can pivot
+ * (e.g. they think it's installed but the binary went missing).
+ */
+function DaemonOfflinePanel({
+  installed,
+  apiUrl,
+  onRetry,
+}: {
+  installed: boolean;
+  apiUrl?: string;
+  onRetry: () => void;
+}) {
+  const headline = installed
+    ? 'Claude-B is installed but the daemon is not running.'
+    : 'Claude-B is not installed on this host.';
+
   return (
-    <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4">
+    <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 space-y-4">
       <div className="flex items-start gap-3">
         <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
-            Claude-B daemon is unreachable
-          </p>
+          <p className="text-sm font-medium text-amber-700 dark:text-amber-300">{headline}</p>
           <p className="text-xs text-muted-foreground mt-1">
-            The dashboard couldn't reach <code>cb</code> at <code>{import.meta.env.VITE_CB_API_URL || 'host.docker.internal:3848'}</code>.
-            Make sure the daemon is running: <code>sudo systemctl status cb-daemon.service</code>{' '}
-            (or <code>cb -r</code> for the foreground REST server). The Sessions list and all
-            controls below will stay disabled until it answers.
+            The dashboard couldn't reach <code>cb</code> at{' '}
+            <code>{apiUrl || 'http://127.0.0.1:3847'}</code>. Pick the case that matches your host
+            below. Sessions stay disabled until the daemon answers.
           </p>
-          {error && (
-            <p className="text-xs text-amber-700/80 dark:text-amber-300/80 mt-2 font-mono">
-              {error}
-            </p>
-          )}
-          <Button size="sm" variant="ghost" onClick={onRetry} className="mt-2">
-            <RefreshCw size={13} className="mr-1" /> Retry
-          </Button>
+        </div>
+        <a
+          href={CB_REPO_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs flex items-center gap-1 text-primary hover:underline shrink-0"
+        >
+          GitHub repo <ExternalLink size={12} />
+        </a>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <CaseBox
+          title="A · Daemon stopped"
+          subtitle="cb is on PATH but the REST server isn't answering."
+          highlighted={installed}
+          icon={<Play size={14} />}
+          steps={[
+            'sudo systemctl enable --now cb-daemon.service',
+            'cb -s   # verify: list sessions',
+          ]}
+        />
+        <CaseBox
+          title="B · Not installed"
+          subtitle="No cb binary found. One-shot install + start."
+          highlighted={!installed}
+          icon={<Download size={14} />}
+          steps={[
+            'curl -fsSL https://claude-b.foor.tech/install | sh',
+            'sudo systemctl enable --now cb-daemon.service',
+          ]}
+          repoLink
+        />
+      </div>
+
+      <Button size="sm" variant="ghost" onClick={onRetry}>
+        <RefreshCw size={13} className="mr-1" /> Re-check
+      </Button>
+    </div>
+  );
+}
+
+function CaseBox({
+  title,
+  subtitle,
+  steps,
+  icon,
+  highlighted,
+  repoLink,
+}: {
+  title: string;
+  subtitle: string;
+  steps: string[];
+  icon: React.ReactNode;
+  highlighted: boolean;
+  repoLink?: boolean;
+}) {
+  return (
+    <div
+      className={clsx(
+        'rounded-md border p-3 space-y-2 transition-colors',
+        highlighted
+          ? 'border-primary bg-primary/5'
+          : 'border-border bg-background/40 opacity-90'
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <span className={clsx('h-6 w-6 rounded flex items-center justify-center', highlighted ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>
+          {icon}
+        </span>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold">{title}</p>
+          <p className="text-xs text-muted-foreground">{subtitle}</p>
         </div>
       </div>
+      <pre className="text-[11px] leading-snug font-mono bg-muted/50 rounded px-2 py-1.5 overflow-x-auto whitespace-pre">
+{steps.join('\n')}
+      </pre>
+      {repoLink && (
+        <a
+          href={CB_REPO_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+        >
+          danimoya/Claude-B on GitHub <ExternalLink size={11} />
+        </a>
+      )}
     </div>
   );
 }

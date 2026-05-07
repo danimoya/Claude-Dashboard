@@ -45,10 +45,27 @@ export interface CBHealth {
   sessions: number;
 }
 
+export interface CBDaemonStatus {
+  installed: boolean;
+  running: boolean;
+  version?: string;
+  apiUrl?: string;
+}
+
 export const claudeBService = {
   // Health
   async health(): Promise<CBHealth> {
     const res = await api.get('/api/v1/cb/health');
+    return res.data.data;
+  },
+
+  /**
+   * Lightweight reachability check used by the /claude-b install-hint panel.
+   * Returns a structured result for both "binary missing" and "daemon down"
+   * instead of throwing so the UI can branch on the actual case.
+   */
+  async daemonStatus(): Promise<CBDaemonStatus> {
+    const res = await api.get('/api/v1/cb/daemon-status');
     return res.data.data;
   },
 
