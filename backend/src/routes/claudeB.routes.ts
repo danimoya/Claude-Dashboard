@@ -4,10 +4,13 @@
  */
 
 import { Router, type Request, type Response, type NextFunction } from 'express';
+import { execFile as execFileCb } from 'node:child_process';
+import { promisify } from 'node:util';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { ClaudeBService } from '../services/claudeB.service.js';
 import { z } from 'zod';
 
+const execFile = promisify(execFileCb);
 const router = Router();
 const cbService = new ClaudeBService();
 
@@ -20,6 +23,38 @@ router.get('/health', authenticate, async (_req: Request, res: Response, next: N
   } catch (error) {
     next(error);
   }
+});
+
+/**
+ * Lightweight detector for the /claude-b page's install-hint panel.
+ * Reports whether the cb binary is on PATH (`installed`) and whether the
+ * daemon's REST endpoint answers within ~1.5s (`running`). Never throws —
+ * absence is part of the answer.
+ */
+router.get('/daemon-status', authenticate, async (_req: Request, res: Response) => {
+  let installed = false;
+  let version: string | undefined;
+  try {
+    const { stdout } = await execFile('cb', ['--version'], { timeout: 2000 });
+    installed = true;
+    version = stdout.split('\n')[0]?.trim() || undefined;
+  } catch {
+    installed = false;
+  }
+
+  let running = false;
+  const apiUrl = process.env.CB_API_URL || 'http://127.0.0.1:3847';
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 1500);
+    const r = await fetch(`${apiUrl}/api/health`, { signal: ctrl.signal });
+    clearTimeout(t);
+    running = r.ok;
+  } catch {
+    running = false;
+  }
+
+  res.json({ success: true, data: { installed, running, version, apiUrl } });
 });
 
 // ── Sessions ──────────────────────────────────────────────────
