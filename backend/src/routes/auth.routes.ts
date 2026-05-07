@@ -3,7 +3,7 @@
  */
 
 import { Router, type Request, type Response, type NextFunction } from 'express';
-import { LoginSchema } from '@shared/schemas';
+import { LoginSchema } from '@claude-dashboard/shared';
 import { AuthService } from '../services/auth.service.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { authRateLimit } from '../middleware/rateLimit.middleware.js';

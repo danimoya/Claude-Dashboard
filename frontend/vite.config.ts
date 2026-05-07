@@ -1,20 +1,32 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import dotenv from 'dotenv';
+
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
+const FRONTEND_PORT = Number(process.env.FRONTEND_PORT) || 3000;
+const BACKEND_HTTP = process.env.BACKEND_TARGET || 'http://localhost:5000';
+const BACKEND_WS = BACKEND_HTTP.replace(/^http/, 'ws');
+const ALLOWED_HOSTS = (process.env.FRONTEND_ALLOWED_HOSTS || '')
+  .split(',')
+  .map((h) => h.trim())
+  .filter(Boolean);
 
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 3000,
+    host: '0.0.0.0',
+    port: FRONTEND_PORT,
+    strictPort: true,
+    allowedHosts: ALLOWED_HOSTS.length > 0 ? ALLOWED_HOSTS : true,
     proxy: {
-      '/api': {
-        target: 'http://localhost:5000',
-        changeOrigin: true,
-      },
-      '/ws': {
-        target: 'ws://localhost:5000',
-        ws: true,
-      },
+      '/api': { target: BACKEND_HTTP, changeOrigin: true },
+      '/ws': { target: BACKEND_WS, ws: true },
+      // Socket.IO connects to /socket.io/ at window.location.origin by
+      // default; without this proxy entry, every /tmux, /cli, /cb gateway
+      // reconnects forever in dev or behind a reverse proxy.
+      '/socket.io': { target: BACKEND_HTTP, ws: true, changeOrigin: true },
     },
   },
   resolve: {
@@ -30,9 +42,9 @@ export default defineConfig({
       output: {
         manualChunks: {
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'editor': ['monaco-editor', '@monaco-editor/react'],
-          'terminal': ['xterm', 'xterm-addon-fit'],
-          'charts': ['recharts'],
+          editor: ['monaco-editor', '@monaco-editor/react'],
+          terminal: ['xterm', 'xterm-addon-fit'],
+          charts: ['recharts'],
         },
       },
     },

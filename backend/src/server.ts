@@ -1,3 +1,5 @@
+import 'reflect-metadata';
+
 /**
  * Claude Dashboard Backend Server
  * Express server with TypeORM, WebSocket, and comprehensive middleware
