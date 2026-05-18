@@ -119,12 +119,42 @@ export default function TelemetryPage() {
                 Salted-hash dedupe, ISO week{' '}
                 <code>{publicStats.data?.week || '…'}</code>. Counts unique
                 <code className="mx-1">SHA-256(salt || ip || installation_id)</code>
-                values. Anyone can hit{' '}
-                <a className="text-primary underline" href="https://telemetry.danimoya.com/v1/stats">
+                values.
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                <a
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-primary text-primary-foreground font-medium hover:bg-primary/90"
+                  href="https://telemetry.danimoya.com/stats"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Weekly history chart <ExternalLink size={11} />
+                </a>
+                <a
+                  className="text-primary underline"
+                  href="https://telemetry.danimoya.com/v1/stats/history?weeks=26"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  /v1/stats/history
+                </a>
+                <a
+                  className="text-primary underline"
+                  href="https://telemetry.danimoya.com/v1/stats/cumulative?weeks=52"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  /v1/stats/cumulative
+                </a>
+                <a
+                  className="text-primary underline"
+                  href="https://telemetry.danimoya.com/v1/stats"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   /v1/stats
                 </a>
-                .
-              </p>
+              </div>
             </div>
             {publicStats.data?.byVersion && publicStats.data.byVersion.length > 0 && (
               <div className="text-right">
