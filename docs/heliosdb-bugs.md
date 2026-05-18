@@ -1,10 +1,47 @@
 # HeliosDB-Nano migration — bug report
 
-Status: **Migration blocked**. The Claude-Dashboard remains on PostgreSQL 15 until the issues below are resolved upstream.
+Status: **Substantially unblocked against v3.31.1**, three partial fixes remain. The original report (Nano `3.19.1`, below) recorded 11 bugs; a live re-test against `3.31.1` on 2026-05-17 confirmed **8 fixed, 3 partial**. TypeORM `synchronize: true` bootstrap now works; production-grade SCRAM auth and real `pg_dump` restore still don't.
 
 Per the migration directive ("don't implement workarounds, report bugs — HeliosDB should be a 100% drop-in replacement"), this is the unedited list of incompatibilities encountered when attempting a clean drop-in swap of `postgres:15-alpine` → `heliosdb-nano-v2:latest` (HeliosDB Nano 3.19.1) for the dashboard's TypeORM-backed schema.
 
 The scope of the attempted migration was deliberately conservative: same wire protocol, same TypeORM entities, same `synchronize: true` startup path. No code changes to the application, just a `DB_HOST` flip in `docker-compose.yml`. Any of the bugs below was sufficient on its own to abort the migration; together they leave TypeORM (and any `information_schema`-aware client) unable to bootstrap.
+
+## Update — live re-test against HeliosDB-Nano v3.31.1 (2026-05-17)
+
+Re-verified by running each bug as a live repro against `heliosdb-nano 3.31.1-dev` (HEAD `55e9971` = `v3.31.1` release tag) on `gpc001ca`. Three daemons spun up sequentially with `--auth trust|password|scram-sha-256`. Client was node-pg 8.x — the same library TypeORM uses.
+
+| # | Bug | v3.19.1 | v3.31.1 live | Notes |
+|---|-----|---------|--------------|-------|
+| 1 | `CREATE DATABASE` not implemented | blocker | **partial** ⚠️ | DDL works; `pg_database` enumeration regressed (only `heliosdb` listed). |
+| 2 | SCRAM-SHA-256 rejects first message | blocker | **partial** ⚠️ | Framing parse fixed; final-proof verification still rejects correct password. |
+| 3 | `--auth password` rejects correct passwords | blocker | **fixed** ✅ | Cleartext-password auth works end-to-end. |
+| 4 | `information_schema.tables` not exposed | **blocker** | **fixed** ✅ | TypeORM `hasTable()` EXISTS probe returns correct boolean. |
+| 5 | Arbitrary DB names silently accepted | low | **fixed** ✅ | Bogus name → `FATAL: database "X" does not exist`. |
+| 6 | `pg_dump` restore stalls | blocker | **partial** ⚠️ | Hang fixed; `pg_catalog.set_config()` is missing and every real `pg_dump` calls it. |
+| 7 | Multi-statement queries rejected | low | **fixed** ✅ | Semicolon-separated DDL/SELECT both work. |
+| 8 | Parameterised SELECT crashes node-pg | **blocker** | **fixed** ✅ | Returns rows, connection survives. |
+| 9 | `COUNT(DISTINCT) WHERE = $1` returns 0 | blocker | **fixed** ✅ | Literal and parameterised forms agree. |
+| 10 | Aggregate alias dropped | medium | **fixed** ✅ | `AS xyzzy` preserved in RowDescription + row key. |
+| 11 | `SELECT col FROM t` returns full row | blocker | **fixed** ✅ | Only listed columns projected. |
+
+### What this means for the Claude-Dashboard `DB_HOST` flip
+
+- ✅ **TypeORM `synchronize: true` bootstrap should clear.** Bugs 4, 7, 8, 9, 10, 11 — all the protocol-level blockers — are confirmed fixed live.
+- ⚠️ **Use `--auth password`, not SCRAM.** Bug 3 is fixed; Bug 2 still rejects correct passwords at the final-proof stage. Cleartext-over-TLS on the internal docker bridge is acceptable; SCRAM is not yet.
+- ⚠️ **No real `pg_dump` restore yet.** Bug 6's hang is gone, but `pg_catalog.set_config('search_path','',false)` appears in every `pg_dump` output and errors `Unknown scalar function`. Migrate by letting `synchronize: true` rebuild the schema and replaying data via INSERTs, not by piping `pg_dump` into `psql`.
+- ⚠️ **No multi-DB enumeration.** Bug 1's DDL works but `\l` / ORM-driven listing still only sees `heliosdb`. Single-tenant dashboard is unaffected; multi-tenant deployments would need to wait.
+
+### Suggested v3.31.2 priorities upstream
+
+1. `set_config(name,value,is_local)` as a no-op-returning-value scalar (unblocks real `pg_dump` restore).
+2. Restore the tenant-list join in `pg_database` registry registration.
+3. SCRAM credentials-store / final-proof alignment.
+
+The Migration plan in the Path Forward section below is unchanged in shape — just the gating set shrinks from "blockers everywhere" to "pick `--auth password`, avoid `pg_dump`, expect single-tenant".
+
+---
+
+The original v3.19.1 report follows for historical context. Bug entries are unedited; see the table above for the v3.31.1 verdict on each.
 
 ## Repro environment
 
