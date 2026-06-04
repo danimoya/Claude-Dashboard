@@ -13,6 +13,12 @@ const ALLOWED_HOSTS = (process.env.FRONTEND_ALLOWED_HOSTS || '')
   .map((h) => h.trim())
   .filter(Boolean);
 
+// Do NOT emit source maps in production builds: publicly served *.map files
+// expose original TypeScript source, internal paths, and logic. Off by default;
+// set FRONTEND_SOURCEMAP=true only for a private/debug build (and never serve
+// those maps publicly — upload them to the error monitor instead).
+const EMIT_SOURCEMAP = process.env.FRONTEND_SOURCEMAP === 'true';
+
 export default defineConfig({
   plugins: [react()],
   server: {
@@ -37,7 +43,7 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    sourcemap: EMIT_SOURCEMAP,
     rollupOptions: {
       output: {
         manualChunks: {

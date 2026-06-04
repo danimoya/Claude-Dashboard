@@ -48,84 +48,23 @@ export function requestSizeLimit(maxSize: number = 10 * 1024 * 1024) {
   };
 }
 
-/**
- * Input sanitization
- */
-export function sanitizeInput(req: Request, res: Response, next: NextFunction): void {
-  // Sanitize query parameters
-  for (const key in req.query) {
-    if (typeof req.query[key] === 'string') {
-      req.query[key] = (req.query[key] as string).trim();
-    }
-  }
-
-  // Sanitize body
-  if (req.body && typeof req.body === 'object') {
-    sanitizeObject(req.body);
-  }
-
-  next();
-}
-
-function sanitizeObject(obj: any): void {
-  for (const key in obj) {
-    if (typeof obj[key] === 'string') {
-      obj[key] = obj[key].trim();
-      // Remove potentially dangerous characters
-      obj[key] = obj[key].replace(/<script[^>]*>.*?<\/script>/gi, '');
-      obj[key] = obj[key].replace(/<iframe[^>]*>.*?<\/iframe>/gi, '');
-    } else if (typeof obj[key] === 'object' && obj[key] !== null) {
-      sanitizeObject(obj[key]);
-    }
-  }
-}
-
-/**
- * SQL injection prevention
- */
-export function preventSQLInjection(req: Request, res: Response, next: NextFunction): void {
-  const sqlPattern = /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|UNION)\b)/gi;
-
-  const checkString = (str: string): boolean => {
-    return sqlPattern.test(str);
-  };
-
-  const checkObject = (obj: any): boolean => {
-    for (const key in obj) {
-      if (typeof obj[key] === 'string' && checkString(obj[key])) {
-        return true;
-      } else if (typeof obj[key] === 'object' && obj[key] !== null) {
-        if (checkObject(obj[key])) {
-          return true;
-        }
-      }
-    }
-    return false;
-  };
-
-  // Check query parameters
-  for (const key in req.query) {
-    if (typeof req.query[key] === 'string' && checkString(req.query[key] as string)) {
-      logger.warn(`Potential SQL injection detected in query: ${key}`);
-      res.status(400).json({
-        success: false,
-        error: 'Invalid input detected',
-      });
-      return;
-    }
-  }
-
-  // Check body
-  if (req.body && typeof req.body === 'object') {
-    if (checkObject(req.body)) {
-      logger.warn('Potential SQL injection detected in body');
-      res.status(400).json({
-        success: false,
-        error: 'Invalid input detected',
-      });
-      return;
-    }
-  }
-
-  next();
-}
+// NOTE (security hardening): the previous `sanitizeInput` middleware globally
+// MUTATED request bodies (trimming strings and regex-stripping <script>/<iframe>
+// tags) and a companion `preventSQLInjection` middleware tried to block SQLi with
+// a keyword regex. Both have been removed:
+//
+//   * The XSS denylist was trivially bypassable (e.g. `<img onerror=...>`,
+//     `<svg/onload=...>`, broken-up tags) and provided false assurance while
+//     silently corrupting legitimate data that contains the word "script", angle
+//     brackets, or code snippets — a real problem for a Claude Code dashboard.
+//   * The SQL keyword regex (which was never even mounted) flagged any input
+//     containing SELECT/UPDATE/DELETE/etc., breaking benign prose and code while
+//     adding no real protection.
+//
+// XSS is prevented by context-aware output encoding instead: React escapes by
+// default and CLI/markdown output is sanitized at render time (DOMPurify in
+// MarkdownView, ansiToHtml escaping). SQL injection is prevented by TypeORM's
+// parameterized/bound queries used throughout the data layer. Input shape is
+// validated by the existing Zod schemas at the route boundary.
+//
+// Request bodies are intentionally NOT mutated by middleware anymore.

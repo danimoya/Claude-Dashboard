@@ -19,7 +19,7 @@ import { connectRedis, disconnectRedis } from './config/redis.js';
 import { setupQueueEventHandlers, cleanupQueues } from './config/queue.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
-import { securityHeaders, sanitizeInput } from './middleware/security.middleware.js';
+import { securityHeaders } from './middleware/security.middleware.js';
 import { initializeCLIGateway } from './websocket/cli.gateway.js';
 import { initializeTmuxGateway } from './websocket/tmux.gateway.js';
 import { registerCBStreamProxy } from './websocket/cb-stream.proxy.js';
@@ -82,7 +82,9 @@ app.use(requestLogger);
 
 // Additional security hardening
 app.use(securityHeaders);
-app.use(sanitizeInput);
+// NOTE: the global body-mutating `sanitizeInput` middleware was removed. XSS is
+// handled by output-side encoding (React escaping + DOMPurify at render time) and
+// SQLi by TypeORM parameterized queries; request bodies must not be mutated here.
 
 // Health check endpoint
 app.get('/health', (_req: Request, res: Response) => {

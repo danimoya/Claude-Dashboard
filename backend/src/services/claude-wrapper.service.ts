@@ -57,7 +57,8 @@ export class ClaudeWrapperService extends EventEmitter {
     }
 
     try {
-      // Determine CLI command based on type
+      // Determine CLI command based on type. The executable is fixed
+      // (claude / cb); only the arguments are user-supplied.
       const cliCommand = type === 'claude-code' ? 'claude' : 'cb';
       const fullArgs = [command.command, ...(command.args || [])];
 
@@ -67,14 +68,21 @@ export class ClaudeWrapperService extends EventEmitter {
         args: fullArgs,
       });
 
-      // Spawn the CLI process
+      // Spawn the CLI process WITHOUT a shell. With shell:true, Node joins the
+      // program and every arg into a single `/bin/sh -c` string, so shell
+      // metacharacters in any user-supplied arg (`;`, `|`, `&&`, `$(...)`,
+      // backticks) would be interpreted and execute arbitrary host commands.
+      // Passing argv as an array (shell:false, the default) makes the kernel
+      // exec the binary directly with each element as a literal argument — no
+      // shell parsing, so injection is not possible. PATH lookup of the fixed
+      // executable still works without a shell.
       const childProcess = spawn(cliCommand, fullArgs, {
         cwd: command.cwd || process.cwd(),
         env: {
           ...process.env,
           ...command.env,
         },
-        shell: true,
+        shell: false,
       });
 
       // Create session object

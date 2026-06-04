@@ -97,9 +97,16 @@ export class AuthService {
   async refreshAccessToken(refreshToken: string): Promise<AuthTokens> {
     try {
       // Verify refresh token
-      const payload = jwt.verify(refreshToken, config.jwt.refreshSecret) as { userId: string };
+      const payload = jwt.verify(refreshToken, config.jwt.refreshSecret, {
+        algorithms: ['HS256'],
+      }) as {
+        userId: string;
+        exp?: number;
+      };
 
-      // Check if token is blacklisted
+      // Check if token is blacklisted. With rotation (below) a refresh token is
+      // single-use: presenting an already-rotated (blacklisted) token is treated
+      // as reuse and rejected here.
       if (await this.tokenBlacklist.isBlacklisted(refreshToken)) {
         throw AppError.unauthorized('Token has been revoked');
       }
@@ -110,9 +117,18 @@ export class AuthService {
         throw AppError.unauthorized('Invalid refresh token');
       }
 
+      // Rotate: invalidate the just-used refresh token so it cannot be replayed.
+      // Blacklist it for its remaining lifetime so a leaked/stolen copy used
+      // after the legitimate client has rotated is rejected as reuse.
+      await this.blacklistToken(refreshToken);
+
       // Generate new tokens
       return this.generateTokens(user.id);
     } catch (error) {
+      // Preserve explicit revocation/auth errors; otherwise treat as invalid.
+      if (error instanceof AppError) {
+        throw error;
+      }
       throw AppError.unauthorized('Invalid refresh token');
     }
   }
@@ -158,10 +174,12 @@ export class AuthService {
    */
   private generateTokens(userId: string): AuthTokens {
     const accessToken = jwt.sign({ userId }, config.jwt.secret, {
+      algorithm: 'HS256',
       expiresIn: config.jwt.expiresIn as jwt.SignOptions['expiresIn'],
     });
 
     const refreshToken = jwt.sign({ userId }, config.jwt.refreshSecret, {
+      algorithm: 'HS256',
       expiresIn: config.jwt.refreshExpiresIn as jwt.SignOptions['expiresIn'],
     });
 
@@ -173,7 +191,9 @@ export class AuthService {
    */
   verifyAccessToken(token: string): { userId: string } {
     try {
-      return jwt.verify(token, config.jwt.secret) as { userId: string };
+      return jwt.verify(token, config.jwt.secret, {
+        algorithms: ['HS256'],
+      }) as { userId: string };
     } catch (error) {
       throw AppError.unauthorized('Invalid or expired token');
     }

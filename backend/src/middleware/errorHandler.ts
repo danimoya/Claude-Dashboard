@@ -26,10 +26,19 @@ export function errorHandler(
 
   // Handle validation errors
   if (error.name === 'ZodError') {
+    // Return only sanitized field paths/messages, never the raw error object.
+    // The raw ZodError serializes internal schema structure, input values, and
+    // stack-trace-adjacent detail that should not leak to clients. `flatten()`
+    // yields { formErrors: string[], fieldErrors: Record<string,string[]> }.
+    let details: unknown = undefined;
+    const zodError = error as { flatten?: () => unknown };
+    if (typeof zodError.flatten === 'function') {
+      details = zodError.flatten();
+    }
     res.status(400).json({
       success: false,
       error: 'Validation failed',
-      details: error,
+      ...(details !== undefined && { details }),
     });
     return;
   }
