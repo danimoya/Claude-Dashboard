@@ -8,7 +8,8 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { useAuthStore } from '../stores/authStore';
 
-const WS_URL = import.meta.env.VITE_WS_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+const WS_URL =
+  import.meta.env.VITE_WS_URL || (typeof window !== 'undefined' ? window.location.origin : '');
 
 export interface UseTmuxStream {
   text: string;
@@ -47,7 +48,10 @@ export function useTmuxStream(
 
     const socket = io(`${WS_URL}/tmux`, {
       auth: { token: accessToken },
-      transports: ['websocket'],
+      // Let Socket.IO fall back to HTTP polling when a client network or
+      // reverse proxy rejects websocket upgrades. Polling is sufficient for
+      // the snapshot stream and Socket.IO will still upgrade when possible.
+      transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,

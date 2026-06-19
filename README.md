@@ -160,6 +160,7 @@ The dashboard's Inbox renders the same `resultFull` markdown that Telegram shows
 - [docs/heliosdb-bugs.md](docs/heliosdb-bugs.md) — current upstream gaps blocking the HeliosDB-Nano default; the swap is gated on these
 - `/telemetry` (live page in the running dashboard) — exact JSON payload, retention policy, two independent toggles
 - [docs/architecture.md](docs/architecture.md) — system architecture, data flow, entities
+- [docs/repository-update-guide.md](docs/repository-update-guide.md) — routine change, deploy, smoke-test, and publish checklist
 - [docs/deployment.md](docs/deployment.md) — day-2 operations
 - [docs/development-setup.md](docs/development-setup.md) — local dev quick-start
 - [docs/testing-strategy.md](docs/testing-strategy.md) — Vitest + Jest + Playwright matrix
