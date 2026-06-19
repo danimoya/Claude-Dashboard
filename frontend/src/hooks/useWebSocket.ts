@@ -7,7 +7,8 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from '../stores/authStore';
 
-const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:3000';
+const WS_URL =
+  import.meta.env.VITE_WS_URL || (typeof window !== 'undefined' ? window.location.origin : '');
 
 export interface UseWebSocketOptions {
   namespace?: string;
@@ -35,7 +36,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       auth: {
         token: tokens.accessToken,
       },
-      transports: ['websocket'],
+      transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
